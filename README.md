@@ -12,7 +12,7 @@ If you want to build the bot for yourself, you will need 2 things:
 After obtaining both of these, put them in a file called .env in the same directory as main. In this file, initialize the Discord token as a string called "DISCORD" and the Canvas token as a string called "CANVAS." Then you can make whatever changes you'd like to the code, and by running main the bot should be up and running!
 
 # Installing Dependencies
-Ensure you have Python installed(3.8+). Then, install the required dependencies:
+Ensure you have Python installed (3.8+). Then, install the required dependencies:
 
 ```
 pip install -r requirements.txt
