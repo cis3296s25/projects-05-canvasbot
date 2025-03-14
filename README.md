@@ -1,28 +1,19 @@
-# Project Name
-Put here a short paragraph describing your project. 
-Adding an screenshot or a mockup of your application in action would be nice.  
+# CanvasBot
+CanvasBot is a Discord bot that integrates with the Canvas API to provide a seamless experience for both students and professors. By issuing simple commands, the bot allows students to access their due dates, receive notifications about assignments and deadlines, and recieve announcemets from Canvas all in Discord. Authentication is used to ensure students can safely access their course information through the bot.
 
-![This is a screenshot.](images.png)
-# How to run
-Provide here instructions on how to use your application.   
-- Download the latest binary from the Release section on the right on GitHub.  
-- On the command line uncompress using
-```
-tar -xzf  
-```
-- On the command line run with
-```
-./hello
-```
-- You will see Hello World! on your terminal. 
+#  How to run
+Installation is easy! All you need is Discord, a Discord account, and a server. Next, click [here](https://discord.com/api/oauth2/authorize?client_id=1075548726313111594&permissions=2483030064&scope=bot) to invite the bot to any server you have administrator privileges in. The bot is now in your server and is ready to be used. You may also need to give the bot administrator privileges to push notifications and send messages in authorized channels. If everything is set up correctly, you should be able to see and use the commands by typing "/" in Discord text box.
 
-# How to contribute
-Follow this project board to know the latest status of the project: [http://...]([http://...])  
+# How to build
+If you want to build the bot for yourself, you will need 2 things:
+1. A Discord Bot Token: https://www.writebots.com/discord-bot-token/
+2. A Canvas API Token: https://kb.iu.edu/d/aaja
 
-### How to build
-- Use this github repository: ... 
-- Specify what branch to use for a more stable release or for cutting edge development.  
-- Use InteliJ 11
-- Specify additional library to download if needed 
-- What file and target to compile and run. 
-- What is expected to happen when the app start. 
+After obtaining both of these, put them in a file called .env in the same directory as main. In this file, initialize the Discord token as a string called "DISCORD" and the Canvas token as a string called "CANVAS." Then you can make whatever changes you'd like to the code, and by running main the bot should be up and running!
+
+# Installing Dependencies
+Ensure you have Python installed(3.8+). Then, install the required dependencies:
+
+```
+pip install -r requirements.txt
+```
