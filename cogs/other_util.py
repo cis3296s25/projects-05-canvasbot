@@ -77,7 +77,7 @@ class other_util(commands.Cog):
             return False
     
     def add_user(self, api_key : str,
-                       snowflake : nextcord.User.id,
+                       snowflake : int,
                        user_count : int,
                        filename='users.json') -> int:
         """
