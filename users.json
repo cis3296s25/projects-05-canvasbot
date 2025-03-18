@@ -3,7 +3,12 @@
         {
             "id": 0,
             "snowflake": 0,
-            "apikey": "00"
+            "apikey": "0"
+        },
+        {
+            "id": 0,
+            "snowflake": 1,
+            "apikey": "0"
         }
     ]
 }
