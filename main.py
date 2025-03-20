@@ -3,7 +3,7 @@ import nextcord
 from nextcord.ext import commands
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(dotenv_path='/Users/andrewrush/Desktop/3296-stuff/projects-05-canvasbot/.env')
 
 intents = nextcord.Intents.all()
 intents.members = True
