@@ -17,7 +17,7 @@ class stud_util(commands.Cog):
         self.client = client
         self.curr_course = curr_course
 
-    def get_user_canvas(self, member : nextcord.User | nextcord.Member,
+    async def get_user_canvas(self, member : nextcord.User | nextcord.Member,
                         filename = 'users.json') -> str:
         """
         Retrieves the user's API key.
@@ -26,12 +26,14 @@ class stud_util(commands.Cog):
         Return:
             str >> the user's API key
         """
-        with open(filename, 'r+') as file:
-            file_data = json.load(file)
-            for user in file_data['users']:
-                print(user['snowflake'])
+        with open(filename, 'r+', encoding='utf-8') as file:
+            fileData = json.load(file)
+            for user in fileData["users"]:
                 if user['snowflake'] == member.id:
-                    return user['apikey']
+                    apiKey = user.get('apikey')
+                    decryptedApiKey = await self.client.get_cog('RSA').decryptAPIKey(bytes.fromhex(apiKey))
+                    user['apikey'] = decryptedApiKey
+                    return decryptedApiKey
             return "Please login using the /login command!"
 
     @nextcord.slash_command(name='courses', description='List enrolled courses.')
@@ -45,7 +47,8 @@ class stud_util(commands.Cog):
         """
 
         API_URL = 'https://templeu.instructure.com/'
-        api_key = self.get_user_canvas(member=interaction.user)
+        api_key = await self.get_user_canvas(member=interaction.user)
+        print(api_key)
 
         if api_key == 'Please login using the /login command!':
             await interaction.response.send_message(api_key)
@@ -96,7 +99,7 @@ class stud_util(commands.Cog):
             Nothing
         """
         API_URL = 'https://templeu.instructure.com/'
-        api_key = self.get_user_canvas(member=interaction.user)
+        api_key = await self.get_user_canvas(member=interaction.user)
         
         if api_key == 'Please login using the /login command!':
             await interaction.response.send_message(api_key)
@@ -153,7 +156,7 @@ class stud_util(commands.Cog):
         await interaction.response.defer()
 
         API_URL = 'https://templeu.instructure.com/'
-        api_key = self.get_user_canvas(member=interaction.user)
+        api_key = await self.get_user_canvas(member=interaction.user)
 
         if api_key == 'Please login using the /login command!':
             await interaction.response.send_message(api_key)
@@ -208,7 +211,7 @@ class stud_util(commands.Cog):
         await interaction.response.defer()
 
         API_URL = 'https://templeu.instructure.com/'
-        api_key = self.get_user_canvas(member=interaction.user)
+        api_key = await self.get_user_canvas(member=interaction.user)
 
         if api_key == 'Please login using the /login command!':
             await interaction.response.send_message(api_key)
