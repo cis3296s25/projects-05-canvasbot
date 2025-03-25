@@ -57,7 +57,7 @@ class other_util(commands.Cog):
         user_snowflake = interaction.user.id
         self.user_count = self.add_user(api_key=api_key, snowflake=user_snowflake, user_count=self.user_count)
 
-        await interaction.response.send_message("Successfully logged in!")
+        await interaction.response.send_message("Successfully logged in!", ephemeral=True)
 
     
     def is_logged(self, api_key : str, 
