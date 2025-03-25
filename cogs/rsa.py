@@ -42,12 +42,10 @@ class RSA(commands.Cog):
             os.chmod(self.filePath, stat.S_IREAD)
 
         self.publicKey = self.privateKey.public_key()
-
     # Encrypt the API key using the public key
     async def encryptAPIKey(self, key: str):
-
         ciphertext = self.publicKey.encrypt(
-            key,
+            key.encode(),
             padding.OAEP(
                 mgf=padding.MGF1(algorithm=hashes.SHA256()),
                 algorithm=hashes.SHA256(),
