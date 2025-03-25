@@ -26,4 +26,5 @@ if not os.path.exists(userFile) or os.path.getsize(userFile) == 0:
     with open(userFile, 'w', encoding='utf-8') as file:
         json.dump({"users": []}, file, indent=4)
 
+
 client.run(os.getenv('DISCORD'))

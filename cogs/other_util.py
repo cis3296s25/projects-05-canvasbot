@@ -5,8 +5,6 @@ from nextcord.ext.commands import has_permissions, MissingPermissions
 from canvasapi import Canvas
 from nextcord import SlashOption
 import json
-
-
 ''' Cog for other utility commands such as help or logging in. Basically
     things that are not specifically for professor or student. ''' 
 class other_util(commands.Cog):
@@ -49,18 +47,18 @@ class other_util(commands.Cog):
             Nothing
         """
         
-        if self.is_logged(api_key):
+        if await self.is_logged(api_key):
             await interaction.response.send_message('Already logged in!', ephemeral=True)
             return
         
         
         user_snowflake = interaction.user.id
-        self.user_count = self.add_user(api_key=api_key, snowflake=user_snowflake, user_count=self.user_count)
+        self.user_count = await self.add_user(api_key=api_key, snowflake=user_snowflake, user_count=self.user_count)
 
-        await interaction.response.send_message("Successfully logged in!")
+        await interaction.response.send_message("Successfully logged in!", ephemeral=True)
 
     
-    def is_logged(self, api_key : str, 
+    async def is_logged(self, api_key : str, 
                   filename='users.json') -> bool:
         """
         Checks if the user is logged in the database.
@@ -76,7 +74,7 @@ class other_util(commands.Cog):
                     return True
             return False
     
-    def add_user(self, api_key : str,
+    async def add_user(self, api_key : str,
                        snowflake : int,
                        user_count : int,
                        filename='users.json') -> int:
@@ -89,17 +87,21 @@ class other_util(commands.Cog):
         Returns:
             int : the updated user count
         """
+        # Encrypt the API key and convert to base64 for storage
+        encryptedKey = await self.client.get_cog('RSA').encryptAPIKey(api_key)
+        encryptedKey = encryptedKey.hex()
         with open(filename, 'r+') as file:
             file_data = json.load(file)
             # A new user JSON entry
             new_user = {
                 'id': user_count,
                 'snowflake': snowflake,
-                'apikey': api_key
+                'apikey': encryptedKey
             }
             file_data['users'].append(new_user)
             file.seek(0)
             json.dump(file_data, file, indent=4)
+            file.truncate()
 
         return user_count + 1
 
