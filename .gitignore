@@ -3,3 +3,4 @@
 users.json
 .key
 assignments.json
+**/__pycache__/
