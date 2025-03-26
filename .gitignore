@@ -1,3 +1,5 @@
 .env
 .coverage
 users.json
+.key
+assignments.json

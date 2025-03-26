@@ -3,3 +3,4 @@ python-dotenv
 canvasapi
 beautifulsoup4
 pytz
+cryptography

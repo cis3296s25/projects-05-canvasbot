@@ -1,4 +1,5 @@
 import os
+import json
 import nextcord
 from nextcord.ext import commands
 from dotenv import load_dotenv
@@ -18,5 +19,12 @@ for file in os.listdir('./cogs'):
     if file.endswith('.py'):
         client.load_extension(f'cogs.{file[:-3]}')
         print(f'Loaded {file}...')
+
+# If users.json doesn't exist, create it with an empty users list
+userFile = "users.json"
+if not os.path.exists(userFile) or os.path.getsize(userFile) == 0:
+    with open(userFile, 'w', encoding='utf-8') as file:
+        json.dump({"users": []}, file, indent=4)
+
 
 client.run(os.getenv('DISCORD'))
