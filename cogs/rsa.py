@@ -5,6 +5,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa
 import os
 import stat
+import base64
 from nextcord.ext import commands
 
 class RSA(commands.Cog): 
@@ -52,12 +53,13 @@ class RSA(commands.Cog):
                 label=None
             )
         )
-        return ciphertext
+        return base64.b64encode(ciphertext).decode() # convert bytes to base64 string
     
     async def decryptAPIKey(self, ciphertext: bytes):
         # Decrypt the ciphertext using the private key
+        ciphertext_bytes = base64.b64decode(ciphertext) # convert base64 string back to bytes
         plaintext = self.privateKey.decrypt(
-            ciphertext,
+            ciphertext_bytes,
             padding.OAEP(
                 mgf=padding.MGF1(algorithm=hashes.SHA256()),
                 algorithm=hashes.SHA256(),
