@@ -4,3 +4,5 @@ users.json
 .key
 assignments.json
 **/__pycache__/
+cogs/**/*.pyc
+cogs/__pycache__
