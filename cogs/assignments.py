@@ -74,36 +74,48 @@ class autoAssignmentNotify(commands.Cog):
             if assignments:
                 user = await self.client.fetch_user(snowflake)
                 if user:
-                    courseAssignments = {}
+                    await self.message(user, assignments, api_key)
 
-                    canvas = canvasapi.Canvas(API_URL, api_key)
-                    users_courses = {course.id: course for course in canvas.get_courses(enrollment_state='active')}
 
-                    for assignment in assignments:
-                        course_id = assignment.course_id
-                        course_name = users_courses.get(course_id, {}).name if course_id in users_courses else "Unknown Course"
 
-                        if course_name not in courseAssignments:
-                            courseAssignments[course_name] = []
+    
+    async def message(self, user, assignments, api_key):        
+        courseAssignments = {}
 
-                        courseAssignments[course_name].append(assignment)
+        canvas = canvasapi.Canvas(API_URL, api_key)
+        users_courses = {course.id: course for course in canvas.get_courses(enrollment_state='active')}
 
-                    
-                    message = "**Upcoming Assignments for the Next 5 Days!**\n\n"
-                    for course, assignments in courseAssignments.items():
-                        message += f"**{course}**\n"
-                        for assignment in assignments:
-                            due = dt.strptime(assignment.due_at, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc)
-                            due_local = due.astimezone(pytz.timezone('US/Eastern'))
-                            due_str = due_local.strftime('%m/%d/%Y at %I:%M %p') 
-                            message += f"[{assignment.name}]({assignment.html_url}) - **Due:** {due_str}\n"
-                        message += "\n"
-                        
-                    try:
-                        await user.send(message)
-                    except Exception as e:
-                        print(f"Failed to send DM: {e}")
+        for assignment in assignments:
+            course_id = assignment.course_id
+            course_name = users_courses.get(course_id, {}).name if course_id in users_courses else "Unknown Course"
 
+            if course_name not in courseAssignments:
+                courseAssignments[course_name] = []
+
+            courseAssignments[course_name].append(assignment)
+
+        message = self.format_message(courseAssignments)
+        
+        try:
+            await user.send(message)
+        except Exception as e:
+            print(f"Failed to send DM: {e}")
+
+
+
+    def format_message(self, courseAssignments):
+        message = "**Upcoming Assignments for the Next 5 Days!**\n\n"
+        for course, assignments in courseAssignments.items():
+            message += f"**{course}**\n"
+            for assignment in assignments:
+                due = dt.strptime(assignment.due_at, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc)
+                due_local = due.astimezone(pytz.timezone('US/Eastern'))
+                due_str = due_local.strftime('%m/%d/%Y at %I:%M %p') 
+                message += f"[{assignment.name}]({assignment.html_url}) - **Due:** {due_str}\n"
+            message += "\n"
+
+
+        return message
 
     @check_assignments.before_loop
     async def before_check_assignments(self):
