@@ -16,36 +16,24 @@ class autoAssignmentNotify(commands.Cog):
     '''
     Get users and their API keys from users.json
     '''
+    async def get_users(self) -> dict:
+        users = {}
+        stud_util_cog = self.client.get_cog("stud_util") 
 
-    async def get_users(self, filename='users.json') -> dict:
-        try:
-            with open(filename, 'r') as file:
-                fileData = json.load(file)
+        if not stud_util_cog:
+            print("stud_util cog not found!")
+            return users
 
-                users = {}
-                for user in fileData["users"]:
-                    snowflake = user['snowflake']
-                    encrypted_api_key_hex = user['apikey']
-
-                    print(f"Encrypted API Key (HEX): {encrypted_api_key_hex}")
-
-                    try:
-                        encrypted_api_key_bytes = binascii.unhexlify(encrypted_api_key_hex)
-                        print(f"Decoded API Key (Raw Bytes): {encrypted_api_key_bytes}")
-                    except Exception as e:
-                        print(f"HEX Decoding Error: {e}")
-                        continue 
-
-                    decrypted_api_key = await self.client.get_cog('RSA').decryptAPIKey(encrypted_api_key_bytes)
-                    
+        with open('users.json', 'r', encoding='utf-8') as file:
+            fileData = json.load(file)
+            for user in fileData["users"]:
+                snowflake = user['snowflake']
+                member = self.client.get_user(snowflake)  
+                if member:
+                    decrypted_api_key = await stud_util_cog.get_user_canvas(member) 
                     users[snowflake] = decrypted_api_key
 
-                return users
-
-        except (json.JSONDecodeError, FileNotFoundError, KeyError, TypeError) as e:
-            print(f"Error reading {filename}: {e}")
-            return {}
-
+        return users
         
     '''
     Get assignments from the Canvas API that are due in the next 5 days
@@ -64,7 +52,7 @@ class autoAssignmentNotify(commands.Cog):
                             due = due.replace(tzinfo=pytz.utc)
                             now = dt.now(pytz.utc) 
 
-                            if (due - now).days <= 5:
+                            if 0 <= (due - now).days <= 5:
                                 assignments.append(assignment)
                 except Exception as e:
                     print(f"Error fetching assignments for {course.name}: {e}")
