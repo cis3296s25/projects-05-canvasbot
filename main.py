@@ -27,4 +27,9 @@ if not os.path.exists(userFile) or os.path.getsize(userFile) == 0:
         json.dump({"users": []}, file, indent=4)
 
 
-client.run(os.getenv('DISCORD'))
+
+if __name__ == '__main__':
+    try:
+        client.run(os.getenv('DISCORD'))
+    except Exception as e:
+        print(f"Main.py: Error occured: {e}")
