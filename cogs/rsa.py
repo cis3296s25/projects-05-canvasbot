@@ -30,7 +30,7 @@ class RSA(commands.Cog):
                 backend=default_backend()
             )
 
-            # Save the private key to a file
+            # Save the private key to .key file
             with open(self.filePath, "wb") as keyFile:
                 keyFile.write(self.privateKey.private_bytes(
                     encoding=serialization.Encoding.PEM,

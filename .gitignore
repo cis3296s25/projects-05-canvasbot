@@ -4,6 +4,7 @@ users.json
 .key
 assignments.json
 
+
 __pycache__/
 *.pyc
 *.pyo
@@ -18,5 +19,4 @@ __pycache__/
 *.log
 *.csv
 *.json
-
 venv/
