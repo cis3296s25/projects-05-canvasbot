@@ -5,7 +5,7 @@ users.json
 assignments.json
 
 
-__pycache__/
+cogs/__pycache__
 *.pyc
 *.pyo
 *.pyd
