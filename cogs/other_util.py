@@ -87,7 +87,7 @@ class other_util(commands.Cog):
         Returns:
             int : the updated user count
         """
-        # Encrypt the API key and convert to base64 for storage
+        # Encrypt the API key and convert to hex for storage
         encryptedKey = await self.client.get_cog('RSA').encryptAPIKey(api_key)
         encryptedKey = encryptedKey.hex()
         with open(filename, 'r+') as file:
