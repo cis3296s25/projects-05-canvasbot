@@ -27,4 +27,14 @@ if not os.path.exists(userFile) or os.path.getsize(userFile) == 0:
         json.dump({"users": []}, file, indent=4)
 
 
-client.run(os.getenv('DISCORD'))
+# If ai_channels.json doesn't exist, create it with an empty object
+aiChannelFile = "ai_channels.json"
+if not os.path.exists(aiChannelFile) or os.path.getsize(aiChannelFile) == 0:
+    with open(aiChannelFile, 'w', encoding='utf-8') as file:
+        json.dump({}, file, indent=4)
+        
+if __name__ == '__main__':
+    try:
+        client.run(os.getenv('DISCORD'))
+    except Exception as e:
+        print(f"Main.py: Error occured: {e}")
