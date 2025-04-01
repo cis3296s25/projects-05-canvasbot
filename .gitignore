@@ -6,3 +6,4 @@ assignments.json
 **/__pycache__/
 cogs/**/*.pyc
 cogs/__pycache__
+ai.json
