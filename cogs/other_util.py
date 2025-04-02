@@ -92,6 +92,16 @@ class other_util(commands.Cog):
         encryptedKey = encryptedKey.hex()
         with open(filename, 'r+') as file:
             file_data = json.load(file)
+
+            # Check if the user already exists
+            for user in file_data['users']:
+                if user['snowflake'] == snowflake:
+                    user['apikey'] = encryptedKey
+                    file.seek(0)
+                    json.dump(file_data, file, indent=4)
+                    file.truncate()
+                    return user_count
+
             # A new user JSON entry
             new_user = {
                 'id': user_count,
