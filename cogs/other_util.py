@@ -5,6 +5,7 @@ from nextcord.ext.commands import has_permissions, MissingPermissions
 from canvasapi import Canvas
 from nextcord import SlashOption
 import json
+import requests
 ''' Cog for other utility commands such as help or logging in. Basically
     things that are not specifically for professor or student. ''' 
 class other_util(commands.Cog):
@@ -32,6 +33,29 @@ class other_util(commands.Cog):
             \n courses - lists current enrolled courses and allows the user to select one \
             \n login - logs the user into the database using their Canvas access token", ephemeral=True)
 
+
+
+    def isValidAPIKey(self, api_key : str) -> bool:
+        """
+        Checks if the API key is valid by attempting to connect to the Canvas API.
+        Params:
+            api_key : str >> the user's API key
+        Returns:
+            bool: true if valid, false otherwise
+        """
+        try:
+            URL = 'https://templeu.instructure.com/api/v1/users/self'
+            headers = {"Authorization": f"Bearer {api_key}"}
+            response = requests.get(URL, headers=headers)
+            if response.status_code == 200:
+                return True
+            else:
+                return False
+        except Exception as e:
+            print(f"Error validating API key: {e}")
+            return False
+        
+
     # Login command.
     @nextcord.slash_command(name='login', description='Login to Canvas.')
     async def login(self, interaction : Interaction,
@@ -46,6 +70,11 @@ class other_util(commands.Cog):
         Returns:
             Nothing
         """
+
+        # check the API key is valid
+        if not self.isValidAPIKey(api_key):
+            await interaction.response.send_message("Invalid API key! Please make sure to enter a valid key", ephemeral=True)
+            return 
         
         if await self.is_logged(api_key):
             await interaction.response.send_message('Already logged in!', ephemeral=True)
@@ -102,7 +131,8 @@ class other_util(commands.Cog):
                     file.truncate()
                     return user_count
 
-            # A new user JSON entry
+            # A new user JSON entry 
+
             new_user = {
                 'id': user_count,
                 'snowflake': snowflake,
