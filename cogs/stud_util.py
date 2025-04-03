@@ -17,6 +17,20 @@ class stud_util(commands.Cog):
         self.client = client
         self.curr_course = curr_course
 
+    def get_letter_grade(self, score: float) -> str:
+        if score >= 93: return "A"
+        elif score >= 90: return "A-"
+        elif score >= 87: return "B+"
+        elif score >= 83: return "B"
+        elif score >= 80: return "B-"
+        elif score >= 77: return "C+"
+        elif score >= 73: return "C"
+        elif score >= 70: return "C-"
+        elif score >= 67: return "D+"
+        elif score >= 63: return "D"
+        elif score >= 60: return "D-"
+        else: return "F"
+        
     async def get_user_canvas(self, member : nextcord.User | nextcord.Member,
                         filename = 'users.json') -> str:
         """
@@ -48,7 +62,6 @@ class stud_util(commands.Cog):
 
         API_URL = 'https://templeu.instructure.com/'
         api_key = await self.get_user_canvas(member=interaction.user)
-        print(api_key)
 
         if api_key == 'Please login using the /login command!':
             await interaction.response.send_message(api_key)
@@ -244,6 +257,94 @@ class stud_util(commands.Cog):
                         )
             await interaction.followup.send(embed=embed)
             break
+    
+    @nextcord.slash_command(name='coursegrade', description='View your current grade for a specific course.')
+    async def get_course_grade(self, interaction: Interaction, course_number: int):
+        """
+        
+        Gets the current grade and letter grade for a specified course. 
+        Params:
+            interaction : Interaction >> a Discord interaction
+            course_number : int >> Index of the course selected by the user
+        Return:
+            Nothing
+        """
+        await interaction.response.defer()
+
+        API_URL = 'https://templeu.instructure.com/'
+        api_key = await self.get_user_canvas(member=interaction.user)
+
+        if api_key == 'Please login using the /login command!':
+            await interaction.followup.send(api_key)
+            return
+        
+        user = canvasapi.Canvas(API_URL, api_key)
+        courses = list(user.get_courses(enrollment_state='active'))
+
+        if course_number < 0 or course_number >= len(courses):
+            await interaction.followup.send("Invalid course number. If unsure, use /courses first.")
+            return
+        
+        course = courses[course_number]
+
+        try:
+            enrollment = course.get_enrollments(user_id='self')[0]
+            grade = enrollment.grades.get('current_score', None)
+
+            if grade is None:
+                await interaction.followup.send(f"No grade available for **{course.name}**.")
+                return
+            
+            grade = round(float(grade), 2)
+            letter = self.get_letter_grade(grade)
+
+            await interaction.followup.send(f"**{course.name}**\n{grade}% ({letter})")
+
+        except Exception as e:
+            print(f"Error fetching grade: {e}")
+            await interaction.followup.send("There was an error retrieving the grade. Please try again later.")
+
+
+    @nextcord.slash_command(name='automatic_announcements', description='Have announcements the from current class automatically sent to you as a dm')
+    async def automatic_announcements(self, interaction: Interaction):
+        """
+        Slash command to send a week's worth of announcements as a direct message
+        Params
+            interaction: Interaction >>> The Discord interaction
+        Returns
+            Nothing
+        """
+        await interaction.response.defer() 
+
+        API_URL = 'https://templeu.instructure.com/'
+        api_key = await self.get_user_canvas(member=interaction.user)
+
+        if api_key == 'Please login using the /login command!':
+            await interaction.response.send_message(api_key)
+            return
+
+        if self.curr_course is None:
+            await interaction.followup.send("Please select a course before requesting announcements.", ephemeral=True)
+            return
+        
+        user = canvasapi.Canvas(API_URL, api_key)
+        announcement_pl  = user.get_announcements(context_codes=[self.curr_course])
+        weekly_list = []
+        today = dt.utcnow()
+        
+        for announcements in announcement_pl:
+            if announcements.posted_at is not None:
+                posted_at = dt.strptime(announcements.posted_at, '%Y-%m-%dT%H:%M:%SZ')
+                day_amount = (today - posted_at).days
+                if day_amount <= 7:
+                    raw_html = announcements.message
+                    soup = BeautifulSoup(raw_html, features="html.parser")
+                    desc = soup.get_text().strip()
+                    announcement_date = posted_at.strftime('%B %d, %Y at %I:%M %p')
+                    weekly_list.append(f"**{announcements.title}**\nPosted on: {announcement_date}\n{desc}\n")
+
+        message = "\n\n".join(weekly_list)
+        await interaction.user.send(f" Weekly Announcements for {self.curr_course.name} \n\n{message}")
 
 def setup(client):
     client.add_cog(stud_util(client))

@@ -17,11 +17,12 @@ for file in os.listdir('./cogs'):
         client.load_extension(f'cogs.{file[:-3]}')
         print(f'Loaded {file}...')
 
-# If users.json doesn't exist, create it with an empty directory
+# If users.json doesn't exist, create it with an empty list
 userFile = "users.json"
 if not os.path.exists(userFile) or os.path.getsize(userFile) == 0:
     with open(userFile, 'w', encoding='utf-8') as file:
         json.dump({"users": []}, file, indent=4)
+
 
 
 # If ai.json doesn't exist or is empty, create it with the new structure
@@ -57,7 +58,6 @@ async def on_message(message):
 @client.event
 async def on_ready():
     print(f"{client.user} is up and running.")
-
 
 if __name__ == '__main__':
     try:
