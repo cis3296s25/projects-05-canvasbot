@@ -62,7 +62,6 @@ class stud_util(commands.Cog):
 
         API_URL = 'https://templeu.instructure.com/'
         api_key = await self.get_user_canvas(member=interaction.user)
-        print(api_key)
 
         if api_key == 'Please login using the /login command!':
             await interaction.response.send_message(api_key)
