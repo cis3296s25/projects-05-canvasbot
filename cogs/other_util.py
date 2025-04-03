@@ -55,7 +55,7 @@ class other_util(commands.Cog):
             print(f"Error validating API key: {e}")
             return False
         
-
+    
     # Login command.
     @nextcord.slash_command(name='login', description='Login to Canvas.')
     async def login(self, interaction : Interaction,
