@@ -25,7 +25,7 @@ class ai(commands.Cog) :
 
     @nextcord.slash_command(name="ai", description="Create a new message chat with AI bot")
     async def ai(self, interaction: nextcord.Interaction,
-                 api_key: str = nextcord.SlashOption(name="api_key", description="Your OpenAI API key", required=True)):
+                 api_key: str = nextcord.SlashOption(name="api_key", description="Your OpenAI API key (will override existing key)", required=True)):
         if interaction.guild is None:
             await interaction.response.send_message("This command can only be used in a server.", ephemeral=True)
             return
@@ -35,11 +35,15 @@ class ai(commands.Cog) :
             return
         
         # Overwrite the API key in the ai.json file
-        with open("ai.json", "w") as file:
+        with open("ai.json", "r+") as file:
             data = json.load(file)
-            data["apiKey"] = api_key
+            # Encrypt the API key and convert to hex for storage
+            encryptedKey = await self.client.get_cog('RSA').encryptAPIKey(api_key)
+            encryptedKey = encryptedKey.hex()
+            data["apiKey"] = encryptedKey
             file.seek(0)
             json.dump(data, file, indent=4)
+            file.truncate()
 
 
         # Check if guild already has an AI channel
@@ -56,7 +60,7 @@ class ai(commands.Cog) :
         aiChannel = await guild.create_text_channel(name=f"AI")
         await self.updateJSON(interaction.guild.id, aiChannel.id)
 
-        await aiChannel.send(f"{interaction.user.mention}, your AI channel is ready.", emphemeral=True)
+        await interaction.edit_original_message(content="AI chat channel created successfully!")
 
 def setup(client):
     client.add_cog(ai(client))

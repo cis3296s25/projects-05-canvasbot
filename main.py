@@ -29,11 +29,19 @@ aiFile = "ai.json"
 if not os.path.exists(aiFile) or os.path.getsize(aiFile) == 0:
     with open(aiFile, 'w', encoding='utf-8') as file:
         json.dump({
+            "apiKey": "",
             "systemPrompt": "",
             "guildMessages": {}
         }, file, indent=4)
 
 
+@client.event
+async def on_message(message):
+    if message.author == client.user:
+        return
+
+    await client.process_commands(message)
+    
 @client.event
 async def on_ready():
     print(f"{client.user} is up and running.")
