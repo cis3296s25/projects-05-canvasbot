@@ -46,7 +46,9 @@ async def on_message(message):
         guildData = data.get("guilds", {}).get(guildID)
 
         if guildData and str(message.channel.id) == guildData.get("channelId"):
-            await message.channel.send("AI bot is thinking...")
+            content = message.content or None
+            imgUrl = message.attachments[0].url if message.attachments else None
+            await client.get_cog('ai').chatgpt(message, content, imgUrl)
 
 
     await client.process_commands(message)

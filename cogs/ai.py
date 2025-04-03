@@ -1,11 +1,94 @@
 import nextcord
 from nextcord.ext import commands
 import json
+from openai import AsyncOpenAI
 
 class ai(commands.Cog) :
     def __init__(self, client):
         self.client = client
+        self.openai = None
 
+    async def chatgpt(self, message: nextcord.Message,
+                       content: str, 
+                       imgUrl: str = None) :
+        try :
+            author = message.author.name
+            guildID = str(message.guild.id)
+
+            # Load ai.json to access API key, memory, and chat prompts
+            with open("ai.json", "r+") as file:
+                data = json.load(file)
+                systemPrompt = data.get("systemPrompt")
+                guildData = data.get("guilds", {}).get(guildID, {})
+                channelId = guildData.get("channelId")
+                chatPrompts = guildData.get("chatPrompts", [])
+
+                # Load OpenAI API key if not already loaded
+                if self.openai is None:
+                    apiKey = data.get("apiKey")
+                    if apiKey:
+                        decryptedAPIKey = await self.client.get_cog('RSA').decryptAPIKey(bytes.fromhex(apiKey))
+                        self.openai = AsyncOpenAI(api_key=decryptedAPIKey)
+
+                # Update chat prompts with the new message
+                if content:
+                    chatPrompts.append(f"{author}: {content}")
+                if imgUrl:
+                    chatPrompts.append(f"{author}: [image]: {imgUrl}")
+                chatPrompts = chatPrompts[-3:]  # Keep only the last 3 messages
+
+                # Save the updated chat prompts back to ai.json
+                data["guilds"][guildID]["chatPrompts"] = chatPrompts
+                file.seek(0)
+                json.dump(data, file, indent=4)
+                file.truncate()
+            
+            messages = [
+                {
+                    "role": "system",
+                    "content": f"{systemPrompt}"
+                },
+                {
+                    "role": "user",
+                    "content": "\n".join(chatPrompts)
+
+                }
+            ]
+            if imgUrl:
+                messages.append({
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "\n".join(chatPrompts)},
+                        {"type": "image_url", "image_url": {"url": imgUrl}},
+                    ]
+                })
+            
+            completion = await self.openai.chat.completions.create(
+                model="gpt-4o",
+                messages=messages
+            )
+            responseText = completion.choices[0].message.content
+
+            # Append the AI's response to the chat prompts and save it
+            chatPrompts.append(f"AI: {responseText}")
+            chatPrompts = chatPrompts[-3:]
+
+            with open("ai.json", "r+") as file:
+                data = json.load(file)
+                data["guilds"][guildID]["chatPrompts"] = chatPrompts
+                file.seek(0)
+                json.dump(data, file, indent=4)
+                file.truncate()
+            if len(responseText) <= 2000:
+                await message.channel.send(responseText)
+            else:
+                chunks = [responseText[i:i + 1900] for i in range(0, len(responseText), 1900)]
+                for chunk in chunks:
+                    await message.channel.send(chunk)
+
+        except Exception as e :
+            await message.channel.send(f"An error occurred: {str(e)}")
+    
     async def updateJSON(self, guildId, channelId):
         try:
             with open("ai.json", "r") as f:
