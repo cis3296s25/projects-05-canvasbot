@@ -3,9 +3,10 @@
 users.json
 .key
 assignments.json
-
-
+**/__pycache__/
+cogs/**/*.pyc
 cogs/__pycache__
+ai.json
 *.pyc
 *.pyo
 *.pyd
@@ -20,3 +21,4 @@ cogs/__pycache__
 *.csv
 *.json
 venv/
+

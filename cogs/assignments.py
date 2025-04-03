@@ -100,7 +100,6 @@ class autoAssignmentNotify(commands.Cog):
     @tasks.loop(hours=24)
     async def check_assignments(self):
         users = await self.get_users()  
-        print(f"Loaded Users: {users}")
 
         for snowflake, api_key in users.items(): 
             assignments = self.get_assignments(api_key)
