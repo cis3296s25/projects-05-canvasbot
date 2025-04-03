@@ -55,7 +55,64 @@ class other_util(commands.Cog):
             print(f"Error validating API key: {e}")
             return False
         
-    
+    # logout command 
+    @nextcord.slash_command(name='logout', description='Logout of Canvas bot. NOTE: YOU WILL NEED TO REGENERATE A NEW API KEY.') 
+    async def logout(self, interaction : Interaction):
+        """
+        Slash command to log out of the bot. This will remove the user's API key from the database.
+        Params:
+            interaction : Interaction >> a Discord interaction
+        Returns:
+            Nothing
+        """
+        user_snowflake = interaction.user.id
+        removed, newCount =  await self.remove_user(snowflake=user_snowflake)
+        self.user_count = newCount
+
+        if removed:
+            await interaction.response.send_message("Successfully logged out!", ephemeral=True)
+            return
+        else:
+            await interaction.response.send_message("You are not logged in!", ephemeral=True)
+            return
+
+       
+    async def remove_user(self, snowflake: int, ) -> tuple[bool, int]:        
+        '''
+        Slash command to allow the user to logout of the bot. This will remove the user's entry from the database. (ID, Snowflake, API Key)
+        Params:
+            snowflake : int >> the user's snowflake ID
+            user_count : int >> the count of users already in the database
+
+        Returns:
+            user count : int >> the updated user count
+        '''
+        try:
+            with open('users.json', 'r+') as file:
+                file_data = json.load(file)
+
+                length = len(file_data.get('users', []))
+                userFound= False
+                userToRemove = None
+
+                for user in file_data.get('users', []):
+                    if user['snowflake'] == snowflake:
+                        userFound = True
+                        userToRemove = user
+                        break
+                if userFound:
+                    file_data['users'].remove(userToRemove)
+                    file.seek(0)
+                    json.dump(file_data, file, indent=4)
+                    file.truncate()
+                    return True, len(file_data['users'])
+                else:
+                    print('user not found')
+                    return False, length
+        except FileNotFoundError:
+            print("File not found!")
+            return False, 0
+
     # Login command.
     @nextcord.slash_command(name='login', description='Login to Canvas.')
     async def login(self, interaction : Interaction,
@@ -146,7 +203,5 @@ class other_util(commands.Cog):
         return user_count + 1
 
         
-
-
 def setup(client):
     client.add_cog(other_util(client, 0))
