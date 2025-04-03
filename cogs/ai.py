@@ -23,19 +23,17 @@ class ai(commands.Cog) :
                 channelId = guildData.get("channelId")
                 chatPrompts = guildData.get("chatPrompts", [])
 
-                # Load OpenAI API key if not already loaded
-                if self.openai is None:
-                    apiKey = data.get("apiKey")
-                    if apiKey:
-                        decryptedAPIKey = await self.client.get_cog('RSA').decryptAPIKey(bytes.fromhex(apiKey))
-                        self.openai = AsyncOpenAI(api_key=decryptedAPIKey)
+                apiKey = data.get("apiKey")
+                if apiKey:
+                    decryptedAPIKey = await self.client.get_cog('RSA').decryptAPIKey(bytes.fromhex(apiKey))
+                    self.openai = AsyncOpenAI(api_key=decryptedAPIKey)
 
                 # Update chat prompts with the new message
                 if content:
                     chatPrompts.append(f"{author}: {content}")
                 if imgUrl:
                     chatPrompts.append(f"{author}: [image]: {imgUrl}")
-                chatPrompts = chatPrompts[-3:]  # Keep only the last 3 messages
+                chatPrompts = chatPrompts[-7:]  # Keep only the last 7 messages
 
                 # Save the updated chat prompts back to ai.json
                 data["guilds"][guildID]["chatPrompts"] = chatPrompts
@@ -71,7 +69,7 @@ class ai(commands.Cog) :
 
             # Append the AI's response to the chat prompts and save it
             chatPrompts.append(f"AI: {responseText}")
-            chatPrompts = chatPrompts[-3:]
+            chatPrompts = chatPrompts[-7:]
 
             with open("ai.json", "r+") as file:
                 data = json.load(file)
