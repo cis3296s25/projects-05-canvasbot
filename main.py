@@ -17,21 +17,21 @@ for file in os.listdir('./cogs'):
         client.load_extension(f'cogs.{file[:-3]}')
         print(f'Loaded {file}...')
 
-# If users.json doesn't exist, create it with an empty users list
+# If users.json doesn't exist, create it with an empty directory
 userFile = "users.json"
 if not os.path.exists(userFile) or os.path.getsize(userFile) == 0:
     with open(userFile, 'w', encoding='utf-8') as file:
         json.dump({"users": []}, file, indent=4)
 
 
-# if ai.json doesn't exist, create it with an empty dictionary
+# If ai.json doesn't exist or is empty, create it with the new structure
 aiFile = "ai.json"
 if not os.path.exists(aiFile) or os.path.getsize(aiFile) == 0:
     with open(aiFile, 'w', encoding='utf-8') as file:
         json.dump({
             "apiKey": "",
             "systemPrompt": "",
-            "guildMessages": {}
+            "guilds": {}
         }, file, indent=4)
 
 
@@ -40,7 +40,17 @@ async def on_message(message):
     if message.author == client.user:
         return
 
+    with open("ai.json", "r") as file:
+        data = json.load(file)
+        guildID = str(message.guild.id)
+        guildData = data.get("guilds", {}).get(guildID)
+
+        if guildData and str(message.channel.id) == guildData.get("channelId"):
+            await message.channel.send("AI bot is thinking...")
+
+
     await client.process_commands(message)
+
     
 @client.event
 async def on_ready():
