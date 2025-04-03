@@ -30,7 +30,68 @@ class stud_util(commands.Cog):
         elif score >= 63: return "D"
         elif score >= 60: return "D-"
         else: return "F"
+
+    def convert_to_gpa_scale(self, percentage: float) -> float:
+        """
+        Converts percentage grade to 4.0 GPA scale.
         
+        Args:
+            percentage: Percentage grade (0-100)
+            
+        Returns:
+            float: GPA points on a 4.0 scale
+        """
+        if percentage >= 93: return 4.0
+        elif percentage >= 90: return 3.7 # A-
+        elif percentage >= 87: return 3.3  # B+
+        elif percentage >= 83: return 3.0  # B
+        elif percentage >= 80: return 2.7  # B-
+        elif percentage >= 77: return 2.3  # C+
+        elif percentage >= 73: return 2.0  # C
+        elif percentage >= 70: return 1.7  # C-
+        elif percentage >= 67: return 1.3  # D+
+        elif percentage >= 63: return 1.0  # D
+        elif percentage >= 60: return 0.7  # D-
+        else: return 0.0  # F
+
+    def get_course_credits(self, course_name: str) -> int:
+        """
+        Returns the number of credits for a course based on its name.
+        
+        Args:
+            course_name: The name of the course
+            
+        Returns:
+            int: Number of credits (default is 3)
+        """
+        # Convert to lowercase for case-insensitive matching
+        name_lower = course_name.lower()
+        
+        # List of (some) courses that are 4 credits
+        four_credit_courses = [
+            "calculus iii",
+            "calculus ii",
+            "computer systems",
+            "low-level programming",
+            "software design",
+            "mathematical concepts",
+            "data structures",
+            "operating systems",
+            "systems programming"
+            "web application"
+            "wireless networks"
+            "mobile application"
+            "database systems"
+        ]
+        
+        # Check if any of the 4-credit course keywords are in the course name
+        for course_keyword in four_credit_courses:
+            if course_keyword in name_lower:
+                return 4
+                
+        # Default for other courses
+        return 3
+
     async def get_user_canvas(self, member : nextcord.User | nextcord.Member,
                         filename = 'users.json') -> str:
         """
@@ -346,6 +407,137 @@ class stud_util(commands.Cog):
 
         message = "\n\n".join(weekly_list)
         await interaction.user.send(f" Weekly Announcements for {self.curr_course.name} \n\n{message}")
+
+    @nextcord.slash_command(name="semester_gpa", description="View your current weighted GPA for THIS semester.")
+    async def get_semester_gpa(self, interaction: Interaction):
+        """
+        Calculates and diplsays the user's current semester GPA based on active courses.
+        
+        Args:
+            interaction: The Discord interaction
+        """
+        await interaction.response.defer()
+
+        API_URL = 'https://templeu.instructure.com/'
+        api_key = await self.get_user_canvas(member=interaction.user)
+
+        if api_key == 'Please login using the /login command!':
+            await interaction.followup.send(api_key)
+            return
+        
+        try:
+            # Connect to Canvas API
+            user = canvasapi.Canvas(API_URL, api_key)
+
+            # Get all active courses 
+            all_courses = user.get_courses(enrollment_state='active')
+
+            # Try to get detailed course info and identify current courses based on assingments due this month
+            print("Getting course info and checking current assingments:")
+            current_semester_courses = []
+            current_month = dt.now().month
+            current_year = dt.now().year
+            previous_month = current_month - 1 if current_month > 1 else 12
+            previous_month_year = current_year if current_month > 1 else current_year - 1
+
+            for course in all_courses:
+                try:
+                    print(f"Course: {course.name}")
+
+                    assignments = list(course.get_assignments())
+                    has_relevant_assignments = False
+                    
+                    # Check if any assignments are due this month
+                    for assignment in assignments:
+                        if hasattr(assignment, 'due_at') and assignment.due_at:
+                            try:
+                                due_date = dt.strptime(assignment.due_at, '%Y-%m-%dT%H:%M:%SZ')
+                                # Check for current month
+                                if due_date.year == current_year and due_date.month == current_month:
+                                    has_relevant_assignments = True
+                                    print(f"   Assignment due in current month: {assignment.name}")
+                                    break
+                                # Check for previous month
+                                elif due_date.year == previous_month_year and due_date.month == previous_month:
+                                    has_relevant_assignments = True
+                                    print(f"   Assignment due in previous month: {assignment.name}")
+                                    break
+                            except Exception as e:
+                                print(f"  Error parsing due date {e}")
+                    
+                    # If we found current assignments, add to current semester courses
+                    if has_relevant_assignments:
+                        current_semester_courses.append(course)
+                        print(f"   Added to current semester courses (recent assignments)")
+                    else: 
+                        print(f"   No assignments due in current or previous month")
+
+                        # Fallback for courses without current assignments but with "2025" in name
+                        if '2025' in course.name:
+                            current_semester_courses.append(course)
+                            print(f"   Added to current semester courses (2025 in name)")
+                except Exception as e:
+                    print(f"   Error processing course {course.name}: {e}")
+        
+            if not current_semester_courses:
+                await interaction.followup.send("No current semester courses found.")
+                return
+            
+            # Calculate GPA
+            total_points = 0 
+            total_credits = 0
+            course_data = []
+
+            for course in current_semester_courses:
+                try:
+                    # Get enrollment information for this course
+                    enrollment = course.get_enrollments(user_id='self')[0]
+                    current_score = enrollment.grades.get('current_score')
+
+                    # Skip courses with no grade
+                    if current_score is None:
+                        continue
+
+                    # Convert percentage grade to 4.0 scale
+                    current_score = float(current_score)
+                    gpa_points = self.convert_to_gpa_scale(current_score)
+
+                    # Get credits based on course name
+                    credits = self.get_course_credits(course.name) 
+
+                    # Add to running totals 
+                    total_points += gpa_points * credits
+                    total_credits += credits
+
+                    # Store for detailed output
+                    course_data.append({
+                        'name': course.name,
+                        'grade': current_score,
+                        'gpa_points': gpa_points,
+                        'credits': credits
+                    })
+                except Exception as e:
+                    print(f"Error processing course {course.name}: {e}")
+                    continue
+            
+            # Calculate final GPA
+            if total_credits > 0:
+                semester_gpa = total_points / total_credits
+                semester_gpa_rounded = round(semester_gpa, 2)
+
+                # Format output
+                output = f"**Your current semester GPA is: {semester_gpa_rounded}**\n\n"
+                output += "Course breakdown:\n"
+                for c in course_data:
+                    output += f"- {c['name']}: {c['grade']}% ({c['gpa_points']} GPA points)\n"
+
+                await interaction.followup.send(output)
+            else:
+                await interaction.followup.send("Could not calculate GPA - no graded courses found for this semester")
+
+        except Exception as e:
+            print(f"Error calculating semester GPA: {e}")
+            await interaction.followup.send("An error occurred while calculating your semester GPA. Please try again later.")
 
 def setup(client):
     client.add_cog(stud_util(client))
