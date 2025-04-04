@@ -5,6 +5,7 @@ from nextcord.ext.commands import has_permissions, MissingPermissions
 from canvasapi import Canvas
 from nextcord import SlashOption
 import json
+import requests
 ''' Cog for other utility commands such as help or logging in. Basically
     things that are not specifically for professor or student. ''' 
 class other_util(commands.Cog):
@@ -32,6 +33,86 @@ class other_util(commands.Cog):
             \n courses - lists current enrolled courses and allows the user to select one \
             \n login - logs the user into the database using their Canvas access token", ephemeral=True)
 
+
+
+    def isValidAPIKey(self, api_key : str) -> bool:
+        """
+        Checks if the API key is valid by attempting to connect to the Canvas API.
+        Params:
+            api_key : str >> the user's API key
+        Returns:
+            bool: true if valid, false otherwise
+        """
+        try:
+            URL = 'https://templeu.instructure.com/api/v1/users/self'
+            headers = {"Authorization": f"Bearer {api_key}"}
+            response = requests.get(URL, headers=headers)
+            if response.status_code == 200:
+                return True
+            else:
+                return False
+        except Exception as e:
+            print(f"Error validating API key: {e}")
+            return False
+        
+    # logout command 
+    @nextcord.slash_command(name='logout', description='Logout of Canvas bot. NOTE: YOU WILL NEED TO REGENERATE A NEW API KEY.') 
+    async def logout(self, interaction : Interaction):
+        """
+        Slash command to log out of the bot. This will remove the user's API key from the database.
+        Params:
+            interaction : Interaction >> a Discord interaction
+        Returns:
+            Nothing
+        """
+        user_snowflake = interaction.user.id
+        removed, newCount =  await self.remove_user(snowflake=user_snowflake)
+        self.user_count = newCount
+
+        if removed:
+            await interaction.response.send_message("Successfully logged out!", ephemeral=True)
+            return
+        else:
+            await interaction.response.send_message("You are not logged in!", ephemeral=True)
+            return
+
+       
+    async def remove_user(self, snowflake: int, ) -> tuple[bool, int]:        
+        '''
+        Slash command to allow the user to logout of the bot. This will remove the user's entry from the database. (ID, Snowflake, API Key)
+        Params:
+            snowflake : int >> the user's snowflake ID
+            user_count : int >> the count of users already in the database
+
+        Returns:
+            user count : int >> the updated user count
+        '''
+        try:
+            with open('users.json', 'r+') as file:
+                file_data = json.load(file)
+
+                length = len(file_data.get('users', []))
+                userFound= False
+                userToRemove = None
+
+                for user in file_data.get('users', []):
+                    if user['snowflake'] == snowflake:
+                        userFound = True
+                        userToRemove = user
+                        break
+                if userFound:
+                    file_data['users'].remove(userToRemove)
+                    file.seek(0)
+                    json.dump(file_data, file, indent=4)
+                    file.truncate()
+                    return True, len(file_data['users'])
+                else:
+                    print('user not found')
+                    return False, length
+        except FileNotFoundError:
+            print("File not found!")
+            return False, 0
+
     # Login command.
     @nextcord.slash_command(name='login', description='Login to Canvas.')
     async def login(self, interaction : Interaction,
@@ -46,6 +127,11 @@ class other_util(commands.Cog):
         Returns:
             Nothing
         """
+
+        # check the API key is valid
+        if not self.isValidAPIKey(api_key):
+            await interaction.response.send_message("Invalid API key! Please make sure to enter a valid key", ephemeral=True)
+            return 
         
         if await self.is_logged(api_key):
             await interaction.response.send_message('Already logged in!', ephemeral=True)
@@ -92,7 +178,18 @@ class other_util(commands.Cog):
         encryptedKey = encryptedKey.hex()
         with open(filename, 'r+') as file:
             file_data = json.load(file)
-            # A new user JSON entry
+
+            # Check if the user already exists
+            for user in file_data['users']:
+                if user['snowflake'] == snowflake:
+                    user['apikey'] = encryptedKey
+                    file.seek(0)
+                    json.dump(file_data, file, indent=4)
+                    file.truncate()
+                    return user_count
+
+            # A new user JSON entry 
+
             new_user = {
                 'id': user_count,
                 'snowflake': snowflake,
@@ -106,7 +203,5 @@ class other_util(commands.Cog):
         return user_count + 1
 
         
-
-
 def setup(client):
     client.add_cog(other_util(client, 0))
