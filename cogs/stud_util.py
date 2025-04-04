@@ -1,7 +1,7 @@
 import nextcord
 import os
 from dotenv import load_dotenv 
-from nextcord.ext import commands
+from nextcord.ext import commands, tasks
 from nextcord import Interaction
 from nextcord.ext.commands import has_permissions, MissingPermissions
 import canvasapi
@@ -13,9 +13,15 @@ from nextcord import Embed
 import json
 
 class stud_util(commands.Cog):
+    announcement_message = ""
     def __init__(self, client, curr_course = None):
         self.client = client
         self.curr_course = curr_course
+        self.user = None
+        self.url = None
+        self.key = None
+        self.pickChoice = None
+
 
     async def get_user_canvas(self, member : nextcord.User | nextcord.Member,
                         filename = 'users.json') -> str:
@@ -256,35 +262,90 @@ class stud_util(commands.Cog):
         """
         await interaction.response.defer() 
 
-        API_URL = 'https://templeu.instructure.com/'
-        api_key = await self.get_user_canvas(member=interaction.user)
+        global URL_CANVAS
+        global key_api
 
-        if api_key == 'Please login using the /login command!':
-            await interaction.response.send_message(api_key)
+        URL_CANVAS = 'https://templeu.instructure.com/'
+        userCurrent = interaction.user
+        key_api = await self.get_user_canvas(member=interaction.user)
+
+
+        if key_api == 'Please login using the /login command!':
+            await interaction.response.send_message(key_api)
             return
 
         if self.curr_course is None:
             await interaction.followup.send("Please select a course before requesting announcements.", ephemeral=True)
             return
         
-        user = canvasapi.Canvas(API_URL, api_key)
-        announcement_pl  = user.get_announcements(context_codes=[self.curr_course])
-        weekly_list = []
-        today = dt.utcnow()
-        
-        for announcements in announcement_pl:
-            if announcements.posted_at is not None:
-                posted_at = dt.strptime(announcements.posted_at, '%Y-%m-%dT%H:%M:%SZ')
-                day_amount = (today - posted_at).days
-                if day_amount <= 7:
-                    raw_html = announcements.message
-                    soup = BeautifulSoup(raw_html, features="html.parser")
-                    desc = soup.get_text().strip()
-                    announcement_date = posted_at.strftime('%B %d, %Y at %I:%M %p')
-                    weekly_list.append(f"**{announcements.title}**\nPosted on: {announcement_date}\n{desc}\n")
+        course_str = str(self.curr_course)
+        await interaction.followup.send("Do you want to toggle automatic daily announcements for this course? :\n" + course_str)
 
-        message = "\n\n".join(weekly_list)
-        await interaction.user.send(f" Weekly Announcements for {self.curr_course.name} \n\n{message}")
+        output = "+ Enter 1 for yes and 0 for no +\n"
+        await interaction.followup.send(f"```diff\n{output}```")
+
+        def check(message : nextcord.message) -> bool:
+            """
+            Helper method to check a message.
+            Params:
+                message : nextcord.message >> the message being checked 
+            Return:
+                bool : whether the pick is valid
+            """
+            if message.content.isdigit():
+                global pick 
+                pick = int(message.content)
+                return range(0,2).count(pick) > 0
+            
+        await self.client.wait_for('message', check=check, timeout = 15)
+        pick_str = str(pick)
+        print("User's response to automatic announcements: " + pick_str + "\n")
+        self.pickChoice = pick
+        self.url = URL_CANVAS
+        self.key = key_api
+        self.user = userCurrent
+
+        if pick == 1:
+            print("1")
+            self.send_announcements_daily.start()
+        elif pick == 0:
+            print("0")
+        else:
+            print("invalid number")
+
+
+
+
+    @tasks.loop(seconds=20)
+    async def send_announcements_daily(self):
+
+        if self.pickChoice==1:
+            print("Background task running")
+            userNew = canvasapi.Canvas(self.url, self.key)
+            announcement_pl  = userNew.get_announcements(context_codes=[self.curr_course])
+            weekly_list = []
+            today = dt.utcnow()
+            
+            for announcements in announcement_pl:
+                if announcements.posted_at is not None:
+                    posted_at = dt.strptime(announcements.posted_at, '%Y-%m-%dT%H:%M:%SZ')
+                    day_amount = (today - posted_at).days
+                    if day_amount <= 7:
+                        raw_html = announcements.message
+                        soup = BeautifulSoup(raw_html, features="html.parser")
+                        desc = soup.get_text().strip()
+                        announcement_date = posted_at.strftime('%B %d, %Y at %I:%M %p')
+                        weekly_list.append(f"**{announcements.title}**\nPosted on: {announcement_date}\n{desc}\n")
+
+            message = "\n\n".join(weekly_list)
+            dm_channel = await self.user.create_dm()
+            await dm_channel.send(f"Weekly Announcements for {self.curr_course.name} \n\n{message}")
+        else:
+            print("User is not recieving weekly updates")
+
+
+
+
 
 def setup(client):
     client.add_cog(stud_util(client))
