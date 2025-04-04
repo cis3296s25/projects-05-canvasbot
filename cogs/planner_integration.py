@@ -18,7 +18,7 @@ class planner(commands.Cog):
     def __init__(self, client):
         self.client = client
         
-    # Slash Command :/connect_google
+    # Slash Command :/connect_google ====================================================================================================
     # Initiates the google OAuth login process by generating an auth URL for the user    
     @nextcord.slash_command(name='connect_google', description='Connect your Google Calendar.')
     async def connect_google(self, interaction : Interaction):
@@ -40,7 +40,7 @@ class planner(commands.Cog):
             ephemeral=True)                                             # Make the message visible only to the user
 
             
-        
+    # Calendar test =======================================================================================================    
     @nextcord.slash_command(name="calendar_test", description="Show 3 upcoming Google Calendar events.")
     async def calendar_test(self, interaction: Interaction):
         user_id = str(interaction.user.id)
@@ -78,7 +78,7 @@ class planner(commands.Cog):
             events = events_result.get("items", [])
 
             if not events:
-                await interaction.followup.send("📅 No upcoming events found.", ephemeral=True)
+                await interaction.followup.send("No upcoming events found.", ephemeral=True)
                 return
 
             response = "\n".join(
@@ -86,18 +86,20 @@ class planner(commands.Cog):
                 for e in events
             )
 
-            await interaction.followup.send(f"📅 Upcoming events:\n{response}", ephemeral=True)
+            await interaction.followup.send(f"Upcoming events:\n{response}", ephemeral=True)
 
         except FileNotFoundError:
-            await interaction.followup.send("❌ You haven’t connected your calendar yet. Use `/connect_google`.", ephemeral=True)
+            await interaction.followup.send("You haven’t connected your calendar yet. Use `/connect_google`.", ephemeral=True)
         except Exception as e:
             print("Error reading calendar:", e)
         
-            await interaction.followup.send("⚠️ Error retrieving calendar events.", ephemeral=True)
+            await interaction.followup.send("Error retrieving calendar events.", ephemeral=True)
     
-
+    # Sync Canvas to Calendar ==============================================================================================================
     @nextcord.slash_command(name="sync_canvas_to_calendar", description="Synchronize your Canvas Assignments to Google Calendar.")
     async def sync_canvas_to_calendar(self, interaction: Interaction):
+ 
+    
         """
         Slash command to fetch Canvas assignments and push them to Google Calendar.
         Params:
@@ -105,51 +107,79 @@ class planner(commands.Cog):
         Return:
             Nothing
         """
-    
-        await interaction.response.defer(ephemeral=True)
+        try:
+            await interaction.response.defer(ephemeral=True)
+        except nextcord.errors.NotFound:
+            print("Interaction already expired. skipping defer.")
+            return
+        
         user_id = str(interaction.user.id)
         assignment_count = 0 
+        print("DEBUG: Starting sync_canvas_to_calendar")
+
         try:
             # Retrieve Canvas Token
             canvas_token = await self.client.get_cog("stud_util").get_user_canvas(interaction.user)
-            if not canvas_token.startswith("Please login") and not canvas_token.startswith("1"):
-                await interaction.followup.send("❌ Please login using `/login <token>` first.", ephemeral=True)
+            print("DEBUG: Got canvas_token:", canvas_token)
+            if canvas_token.startswith("Please login") or canvas_token.startswith("1"):
+                await interaction.followup.send("Please login using `/login <token>` first.", ephemeral=True)
                 return
+
             
             #Load Google Credentials
             with open(f"tokens/{user_id}.json", "r") as f:
                 creds = Credentials(**json.load(f))
+            print("DEBUG: Loaded Google credentials")
             calendar_service = build("calendar", "v3", credentials = creds)
 
                 
             # Load user’s color selections
             color_path = f"course_colors/{user_id}.json"
             if not os.path.exists(color_path):
-                await interaction.followup.send("🎨 You need to run `/setup_colors` first.", ephemeral=True)
+                await interaction.followup.send(
+                    "❗ You need to run `/setup_colors` first to choose which Canvas classes to sync.\n"
+                    "Only courses with colors set will be synced to Google Calendar.",
+                    ephemeral=True
+                )
                 return
+
             with open(color_path, "r") as f:
                 course_colors = json.load(f)
+            print("DEBUG: Loaded course colors")
+
+            await interaction.followup.send(
+                "⏳ Syncing only the courses you've picked colors for...",
+                ephemeral=True
+            )
+
 
             # Get Canvas assignments
             canvas = Canvas("https://templeu.instructure.com/", canvas_token)
-            courses = canvas.get_courses(enrollment_state="active")
-            assignment_count = 0
+            #courses = canvas.get_courses(enrollment_state="active")
+            courses = [
+                c for c in canvas.get_courses(enrollment_state="active")
+                if hasattr(c, "workflow_state") and c.workflow_state == "available"
+            ]
+
+            print("DEBUG: Got courses from Canvas")
 
             for course in courses:
                 course_id = str(course.id)
+                print(f"DEBUG: Processing course {course.name} ({course_id})")
                 if course_id not in course_colors:
+                    print(f"DEBUG: Skipping course {course.name}, no color set")
                     continue  # skip if user didn’t choose a color
 
                 for assignment in course.get_assignments():
                     if not assignment.due_at:
                         continue
 
-                    due_time = dt.strptime(a.due_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=pytz.utc)
+                    due_time = dt.strptime(assignment.due_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=pytz.utc)
                     if due_time < dt.now(pytz.utc):
                         continue  # skip past due
 
                     event = {
-                        'summary': f"{course.name}: {a.name}",
+                        'summary': f"{course.name}: {assignment.name}",
                         'description': f"Canvas assignment for {course.name}.",
                         'start': {
                             'dateTime': due_time.isoformat(),
@@ -161,6 +191,24 @@ class planner(commands.Cog):
                         },
                         'colorId': course_colors[course_id]['color']
                     }
+                    # Check if event already exists
+                    existing_events = calendar_service.events().list(
+                        calendarId="primary",
+                        timeMin=due_time.isoformat(),
+                        timeMax=(due_time + timedelta(minutes=1)).isoformat(),
+                        q=assignment.name,
+                        singleEvents=True
+                    ).execute().get("items", [])
+
+                    already_exists = any(
+                        e["summary"] == event["summary"]
+                        for e in existing_events
+                    )
+
+                    if already_exists:
+                        print(f"DEBUG: Skipping duplicate event for {assignment.name}")
+                        continue
+
 
                     calendar_service.events().insert(calendarId="primary", body=event).execute()
                     assignment_count += 1
@@ -171,7 +219,7 @@ class planner(commands.Cog):
                     await interaction.followup.send(f"✅ Synced {assignment_count} assignments to your Google Calendar!", ephemeral=True)
 
         except FileNotFoundError:
-            await interaction.followup.send("❌ Google Calendar is not connected. Use `/connect_google` first.", ephemeral=True)
+            await interaction.followup.send("Google Calendar is not connected. Use `/connect_google` first.", ephemeral=True)
         except Exception as e:
             print("Sync error:", e)
             print(f"Synced {assignment_count} assignments before error.")
