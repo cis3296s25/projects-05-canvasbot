@@ -64,3 +64,4 @@ if __name__ == '__main__':
         client.run(os.getenv('DISCORD'))
     except Exception as e:
         print(f"Main.py: Error occured: {e}")
+        
