@@ -115,12 +115,12 @@ class planner(commands.Cog):
         
         user_id = str(interaction.user.id)
         assignment_count = 0 
-        print("DEBUG: Starting sync_canvas_to_calendar")
+     
 
         try:
             # Retrieve Canvas Token
             canvas_token = await self.client.get_cog("stud_util").get_user_canvas(interaction.user)
-            print("DEBUG: Got canvas_token:", canvas_token)
+           
             if canvas_token.startswith("Please login") or canvas_token.startswith("1"):
                 await interaction.followup.send("Please login using `/login <token>` first.", ephemeral=True)
                 return
@@ -129,7 +129,6 @@ class planner(commands.Cog):
             #Load Google Credentials
             with open(f"tokens/{user_id}.json", "r") as f:
                 creds = Credentials(**json.load(f))
-            print("DEBUG: Loaded Google credentials")
             calendar_service = build("calendar", "v3", credentials = creds)
 
                 
@@ -145,7 +144,7 @@ class planner(commands.Cog):
 
             with open(color_path, "r") as f:
                 course_colors = json.load(f)
-            print("DEBUG: Loaded course colors")
+          
 
             await interaction.followup.send(
                 "⏳ Syncing only the courses you've picked colors for...",
@@ -161,13 +160,11 @@ class planner(commands.Cog):
                 if hasattr(c, "workflow_state") and c.workflow_state == "available"
             ]
 
-            print("DEBUG: Got courses from Canvas")
+          
 
             for course in courses:
                 course_id = str(course.id)
-                print(f"DEBUG: Processing course {course.name} ({course_id})")
                 if course_id not in course_colors:
-                    print(f"DEBUG: Skipping course {course.name}, no color set")
                     continue  # skip if user didn’t choose a color
 
                 for assignment in course.get_assignments():
@@ -206,7 +203,6 @@ class planner(commands.Cog):
                     )
 
                     if already_exists:
-                        print(f"DEBUG: Skipping duplicate event for {assignment.name}")
                         continue
 
 
@@ -226,6 +222,25 @@ class planner(commands.Cog):
             await interaction.followup.send("⚠️ An error occurred while syncing assignments.", ephemeral=True)
 
 
+    @nextcord.slash_command(name="setup_instructions", description="Get step-by-step instructions for connecting Google Calendar.")
+    async def setup_instructions(self, interaction: Interaction):
+        embed = nextcord.Embed(
+            title="📆 Google Calendar Setup Guide",
+            description=(
+                "**Step 1:** Run the OAuth server\n"
+                "`python web/oauth_server.py`\n\n"
+                "**Step 2:** Use `/connect_google`\n"
+                "Login and authorize access to your Google account.\n\n"
+                "**Step 3:** Use `/setup_colors`\n"
+                "Pick which courses to sync (only those with colors will appear on your calendar).\n\n"
+                "**Step 4:** Use `/sync_canvas_to_calendar`\n"
+                "Adds your Canvas assignments to Google Calendar. You can re-run this anytime.\n\n"
+                "🔁 *If anything breaks, delete your token file in `/tokens/` and repeat Step 2.*"
+            ),
+            color=nextcord.Color.blurple()
+        )
+        embed.set_footer(text="CanvasBot Setup")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
     # Helper function to generate a Google OAuth authorization URL

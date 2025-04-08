@@ -45,6 +45,7 @@ class ColorPickerView(View):
                     "name": c['name'],
                     "color": s.values[0]
                 }
+                self.selected_count += 1
 
                 # Save immediately
                 folder = "course_colors"
@@ -63,12 +64,36 @@ class ColorPickerView(View):
 
 
     async def on_timeout(self):
-        # Save responses to file when view times out
-        if not os.path.exists("course_colors"):
-            os.makedirs("course_colors")
-        with open(f"course_colors/{self.user_id}.json", "w") as f:
-            json.dump(self.responses, f, indent=4)        
+        # Save again just in case
+        folder = "course_colors"
+        os.makedirs(folder, exist_ok=True)
+        with open(f"{folder}/{self.user_id}.json", "w") as f:
+            json.dump(self.responses, f, indent=4)
 
+        # Build and send summary
+        user = await self._get_user()
+        if not user:
+            return
+
+        if self.responses:
+            summary = "\n".join(
+                f"- **{v['name']}** → {GOOGLE_COLORS.get(v['color'], v['color'])}"
+                for v in self.responses.values()
+            )
+            msg = f"✅ You set colors for {len(self.responses)} course(s):\n{summary}"
+        else:
+            msg = "⚠️ No course colors were selected."
+
+        try:
+            await user.send(msg)
+        except Exception as e:
+            print(f"❌ Could not DM user color summary: {e}")
+
+    async def _get_user(self):
+        try:
+            return await self.children[0].client.fetch_user(int(self.user_id))
+        except:
+            return None
 
 class CanvasColorCog(commands.Cog):
     def __init__(self, client):

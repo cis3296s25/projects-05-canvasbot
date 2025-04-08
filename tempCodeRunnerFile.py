@@ -1,1 +1,1 @@
-r 
+aiFile = "ai.json"
