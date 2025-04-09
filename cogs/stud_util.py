@@ -11,6 +11,7 @@ import pytz
 from bs4 import BeautifulSoup
 from nextcord import Embed
 import json
+from nextcord.ext import tasks
 
 class stud_util(commands.Cog):
     def __init__(self, client, curr_course = None):

@@ -35,6 +35,10 @@ if not os.path.exists(aiFile) or os.path.getsize(aiFile) == 0:
             "guilds": {}
         }, file, indent=4)
 
+# if .env file doesn't exist, create it
+if not os.path.exists('.env'):
+    with open('.env', 'w') as file:
+        file.write('DISCORD=""\n')
 
 @client.event
 async def on_message(message):
