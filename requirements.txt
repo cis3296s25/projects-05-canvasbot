@@ -4,3 +4,4 @@ canvasapi
 beautifulsoup4
 pytz
 cryptography
+openai
