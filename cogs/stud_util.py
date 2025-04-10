@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 from nextcord import Embed
 import json
 from nextcord.ext import tasks
+import asyncio
 
 class stud_util(commands.Cog):
     def __init__(self, client, curr_course = None):
@@ -97,7 +98,11 @@ class stud_util(commands.Cog):
                 pick = int(message.content)
                 return range(0,select).count(pick) > 0
             
-        await self.client.wait_for('message', check=check, timeout = 15)
+        try:
+            await self.client.wait_for('message', check=check, timeout=30)
+        except asyncio.TimeoutError:
+            await interaction.followup.send("No response received. Please run the command again if you'd like to select a course.")
+            return
         print(courses[pick].id)
         
         self.curr_course = user.get_course(courses[pick].id)
@@ -259,8 +264,8 @@ class stud_util(commands.Cog):
             await interaction.followup.send(embed=embed)
             break
     
-    @nextcord.slash_command(name='coursegrade', description='View your current grade for a specific course.')
-    async def get_course_grade(self, interaction: Interaction, course_number: int):
+    @nextcord.slash_command(name='coursegrade', description='View your grade for the current course')
+    async def get_course_grade(self, interaction: Interaction):
         """
         
         Gets the current grade and letter grade for a specified course. 
@@ -270,7 +275,7 @@ class stud_util(commands.Cog):
         Return:
             Nothing
         """
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
 
         API_URL = 'https://templeu.instructure.com/'
         api_key = await self.get_user_canvas(member=interaction.user)
@@ -281,29 +286,28 @@ class stud_util(commands.Cog):
         
         user = canvasapi.Canvas(API_URL, api_key)
         courses = list(user.get_courses(enrollment_state='active'))
-
-        if course_number < 0 or course_number >= len(courses):
-            await interaction.followup.send("Invalid course number. If unsure, use /courses first.")
-            return
         
-        course = courses[course_number]
+        if self.curr_course is None:
+            await interaction.followup.send("Please select a course before requesting your grade.", ephemeral=True)
+            return
+        course = self.curr_course
 
         try:
             enrollment = course.get_enrollments(user_id='self')[0]
             grade = enrollment.grades.get('current_score', None)
 
             if grade is None:
-                await interaction.followup.send(f"No grade available for **{course.name}**.")
+                await interaction.followup.send(f"No grade available for **{course.name}**.", ephemeral=True)
                 return
             
             grade = round(float(grade), 2)
             letter = self.get_letter_grade(grade)
 
-            await interaction.followup.send(f"**{course.name}**\n{grade}% ({letter})")
+            await interaction.followup.send(f"**{course.name}**\n{grade}% ({letter})", ephemeral=True)
 
         except Exception as e:
             print(f"Error fetching grade: {e}")
-            await interaction.followup.send("There was an error retrieving the grade. Please try again later.")
+            await interaction.followup.send("There was an error retrieving the grade. Please try again later.", ephemeral=True)
 
 
     @nextcord.slash_command(name='automatic_announcements', description='Have announcements the from current class automatically sent to you as a dm')
