@@ -2,6 +2,7 @@ import nextcord
 import os
 from dotenv import load_dotenv 
 from nextcord.ext import commands
+from nextcord.ext import tasks
 from nextcord import Interaction
 from nextcord.ext.commands import has_permissions, MissingPermissions
 import canvasapi
@@ -105,16 +106,19 @@ class stud_util(commands.Cog):
         Return:
             str >> the user's API key
         """
-        with open(filename, 'r+', encoding='utf-8') as file:
-            fileData = json.load(file)
-            for user in fileData["users"]:
-                if user['snowflake'] == member.id:
-                    apiKey = user.get('apikey')
-                    decryptedApiKey = await self.client.get_cog('RSA').decryptAPIKey(bytes.fromhex(apiKey))
-                    user['apikey'] = decryptedApiKey
-                    return decryptedApiKey
-            return "Please login using the /login command!"
-
+        try:
+            with open(filename, 'r+', encoding='utf-8') as file:
+                fileData = json.load(file)
+                for user in fileData["users"]:
+                    if user['snowflake'] == member.id:
+                        apiKey = user.get('apikey')
+                    if apiKey:
+                        return apiKey
+                    return "please login using the /login command"
+        except Exception as e:
+                    print(f"Error retrieving API key {e}")
+                    return "Error retrieving your API key. Please try logging in again."
+            
     @nextcord.slash_command(name='courses', description='List enrolled courses.')
     async def get_courses(self, interaction : Interaction):
         """
@@ -431,9 +435,6 @@ class stud_util(commands.Cog):
             print("0")
         else:
             print("invalid number")
-
-
-
 
     @tasks.loop(seconds=20)
     async def send_announcements_daily(self):
