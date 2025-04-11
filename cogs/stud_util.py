@@ -120,9 +120,10 @@ class stud_util(commands.Cog):
                 for user in fileData["users"]:
                     if user['snowflake'] == member.id:
                         apiKey = user.get('apikey')
-                    if apiKey:
-                        return apiKey
-                    return "please login using the /login command"
+                        decryptedApiKey = await self.client.get_cog('RSA').decryptAPIKey(bytes.fromhex(apiKey))
+                        user['apikey'] = decryptedApiKey
+                        return decryptedApiKey
+                return "please login using the /login command"
         except Exception as e:
                     print(f"Error retrieving API key {e}")
                     return "Error retrieving your API key. Please try logging in again."
