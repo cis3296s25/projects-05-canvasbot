@@ -12,6 +12,14 @@ import pytz
 from bs4 import BeautifulSoup
 from nextcord import Embed
 import json
+from nextcord.ext import tasks
+
+
+
+
+from datetime import datetime as dt
+
+
 
 class stud_util(commands.Cog):
     def __init__(self, client, curr_course = None):
@@ -128,7 +136,6 @@ class stud_util(commands.Cog):
         Return:
             Nothing
         """
-
         API_URL = 'https://templeu.instructure.com/'
         api_key = await self.get_user_canvas(member=interaction.user)
 
@@ -180,9 +187,17 @@ class stud_util(commands.Cog):
         Return:
             Nothing
         """
+        await interaction.response.defer()
+
         API_URL = 'https://templeu.instructure.com/'
         api_key = await self.get_user_canvas(member=interaction.user)
         
+
+        other_cog = self.client.get_cog("autoAssignmentNotify")  # 👈 get the cog by name
+        if other_cog is None:
+            await interaction.followup.send("Error: assignment notifier is not loaded.")
+            return
+    
         if api_key == 'Please login using the /login command!':
             await interaction.response.send_message(api_key)
             return
@@ -190,96 +205,22 @@ class stud_util(commands.Cog):
             await interaction.response.send_message('Please use `/courses` first and select a course!')
             return
         
-        await interaction.response.defer()
+        assignments = other_cog.get_assignments(api_key)
 
-        none_upcoming = True
-        
-        user = canvasapi.Canvas(API_URL, api_key)
- 
-        assignments = self.curr_course.get_assignments()
-
-        output = f"**Upcoming assingments for {self.curr_course.name}**\n"
-        assignment_list = []
-        for assignment in assignments:
-            assignment_list.append(assignment.__dict__)
-            with open('assignments.json', 'w') as file:
-                json.dump(assignment_list, file, indent=4, default=str)
-            due_date = str(assignment.due_at)
-
-            if due_date == 'None':
-                continue
-            print(due_date)
-            t1 = dt(int(due_date[0:4]), int(due_date[5:7]), int(due_date[8:10]), int(due_date[11:13]), int(due_date[14:16]), tzinfo=pytz.utc)
-            t2 = dt.now(pytz.utc)
-
-            if t1 > t2:
-                none_upcoming = False
-
-                readable_time = t1.astimezone(pytz.timezone('US/Eastern')).strftime("%H:%M")
-                readable_date = t1.strftime("%A, %B %d")
-
-                print(f"{assignment} is due on {readable_date} at {readable_time}\n")
-                output += f"```diff\n- {assignment.name} -\ndue on {readable_date} at {readable_time}```\n"
-    
-        if(none_upcoming):
-            await interaction.followup.send(f"You have no upcoming assignments in {user.name}!")
-        else: 
-            await interaction.followup.send(f"{output}")
-
-    @nextcord.slash_command(name='weekly', description='View the upcoming assignments for the next 7 days.')
-    async def view_weekly_assignments(self, interaction : Interaction):
-        """
-        Views the assignments for all courses due in the next week.
-        Params:
-            interaction : Interaction >> a Discord interaction 
-        Return:
-            Nothing
-        """
-        await interaction.response.defer()
-
-        API_URL = 'https://templeu.instructure.com/'
-        api_key = await self.get_user_canvas(member=interaction.user)
-
-        if api_key == 'Please login using the /login command!':
-            await interaction.response.send_message(api_key)
+        if not assignments:
+            await interaction.followup.send("No upcoming assignments found.")
             return
         
-        user = canvasapi.Canvas(API_URL, api_key)
-        courses = user.get_courses(enrollment_state='active')
+        output = "**Upcoming Assignments (Next 5 Days):**\n"
+        sorted_assignments = sorted(assignments, key=lambda x: dt.strptime(x.due_at, '%Y-%m-%dT%H:%M:%SZ'))
 
-        course_dict = {}
+        for a in sorted_assignments:
+            due = dt.strptime(a.due_at, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc)
+            due_str = due.strftime('%A, %B %d at %I:%M %p UTC')
+            output += f"• **{a.name}** (Course: *{a.course_name}*) — due {due_str}\n"
 
-        for course in courses:
-            try:
-                date = int(course.created_at.split('-')[0])
-                if date == dt.now().year:
-                    print(course.name)
-                    course_dict[course] = course.get_assignments(submission_state='unsubmitted')
-            except AttributeError:
-                print('Error: AttributeError occurred.')
+        await interaction.followup.send(output)
 
-        out : str = ""
-
-        for course, assignments in course_dict.items():
-            for assignment in assignments:
-                due_date = str(assignment.due_at)
-                if due_date == 'None':
-                    continue
-
-                due_date = dt.strptime(due_date, '%Y-%m-%dT%H:%M:%SZ')
-                time_diff = due_date - dt.utcnow()
-                days = time_diff.days
-
-                if days > 7 or days < 0:
-                    continue
-                elif days == 0:
-                    out += f'{assignment.name} is due today.\n'
-                elif days == 1:
-                    out += f'{assignment.name} is due tomorrow.\n'
-                else:
-                    out += f'{assignment.name} is due in {days} days.\n'
-                        
-        await interaction.followup.send(out)
 
     @nextcord.slash_command(name='announcements', description='View announcements from current class')
     async def display_announcements(self, interaction : Interaction):
