@@ -201,6 +201,7 @@ class autoAssignmentNotify(commands.Cog):
                 await user.send(chunk)
         except Exception as e:
             print(f"Failed to send DM: {e}")
+            
 
     '''
     Format the messages to be sent to the user with the assignments that are due in the next 7 days.
