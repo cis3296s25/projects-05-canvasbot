@@ -15,6 +15,8 @@ from nextcord.ext import tasks
 import asyncio
 from nextcord import Embed
 from datetime import datetime as dt
+from nextcord.ui import Select, View
+from nextcord import SelectOption
 
 class stud_util(commands.Cog):
     def __init__(self, client, curr_course = None):
@@ -132,47 +134,45 @@ class stud_util(commands.Cog):
         api_key = await self.get_user_canvas(member=interaction.user)
 
         if api_key == 'Please login using the /login command!':
-            await interaction.response.send_message(api_key)
+            await interaction.response.send_message(api_key, ephemeral=True)
             return
         
         user = canvasapi.Canvas(API_URL, api_key)
-        courses = user.get_courses(enrollment_state='active')
+        courses = list(user.get_courses(enrollment_state='active'))
 
-        await interaction.response.send_message("Here are your courses:\n")
+        options = [
+            SelectOption(label=course.name, value=str(i)) for i, course in enumerate(courses)
+        ]
 
-        select = 0
-        output = ""
-        for course in courses:
-            name = course.name
-            id = course.id
-            output += f"({select}) {name}\n"
-            select += 1
-
-        output += "+ Enter a number to select the corresponding course +\n"
-        await interaction.followup.send(f"```diff\n{output}```") 
-
-        def check(message : nextcord.message) -> bool:
-            """
-            Helper method to check a message.
-            Params:
-                message : nextcord.message >> the message being checked 
-            Return:
-                bool : whether the pick is valid
-            """
-            if message.content.isdigit():
-                global pick 
-                pick = int(message.content)
-                return range(0,select).count(pick) > 0
-            
-        try:
-            await self.client.wait_for('message', check=check, timeout=30)
-        except asyncio.TimeoutError:
-            await interaction.followup.send("No response received. Please run the command again if you'd like to select a course.")
-            return
-        print(courses[pick].id)
+        select = Select(
+            placeholder="Select a course",
+            options=options,
+            min_values=1,
+            max_values=1)
         
-        self.curr_course = user.get_course(courses[pick].id)
-        await interaction.followup.send(f'Current course: **{courses[pick].name}**\n')
+        async def callback(callBackInteraction: Interaction):
+            index = int(select.values[0])
+            view.touched = True
+            self.curr_course = user.get_course(courses[index].id)
+            await callBackInteraction.response.edit_message(content=f"Selected course: **{courses[index].name}**", view=None)
+
+        select.callback = callback
+        class CourseSelectView(View):
+            def __init__(self, timeout=60):
+                super().__init__(timeout=timeout)
+                self.message = None
+                self.touched = False
+
+            async def on_timeout(self):
+                if self.touched:
+                    return
+                await self.message.edit(content="Select timed out. Please run '/courses' again to select a course.", view=None)
+
+        view = CourseSelectView(timeout=5)
+        view.add_item(select)
+        await interaction.response.send_message("Select a course:", view=view, ephemeral=True)
+        view.message = await interaction.original_message()
+
 
     @nextcord.slash_command(name='upcoming', description='List the upcoming assignments.')
     async def get_upcoming(self, interaction : Interaction):
