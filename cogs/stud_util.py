@@ -158,7 +158,7 @@ class stud_util(commands.Cog):
 
         select.callback = callback
         class CourseSelectView(View):
-            def __init__(self, timeout=60):
+            def __init__(self, timeout=30):
                 super().__init__(timeout=timeout)
                 self.message = None
                 self.touched = False
@@ -168,7 +168,7 @@ class stud_util(commands.Cog):
                     return
                 await self.message.edit(content="Select timed out. Please run '/courses' again to select a course.", view=None)
 
-        view = CourseSelectView(timeout=5)
+        view = CourseSelectView(timeout=30)
         view.add_item(select)
         await interaction.response.send_message("Select a course:", view=view, ephemeral=True)
         view.message = await interaction.original_message()
@@ -241,13 +241,17 @@ class stud_util(commands.Cog):
             await interaction.response.send_message(api_key)
             return
         
+        if self.curr_course is None:
+            await interaction.followup.send("Please select a course using /courses command before requesting announcements.", ephemeral=True)
+            return
+        
         user = canvasapi.Canvas(API_URL, api_key)
         announcement_pl  = user.get_announcements(context_codes=[self.curr_course])
 
         announcements = list(announcement_pl)
 
         if len(announcements) == 0:
-            print("No announcements")
+            await interaction.followup.send("No announcements found for this course.", ephemeral=True)
             return
         
         for announcement in announcements:
@@ -266,7 +270,7 @@ class stud_util(commands.Cog):
                         color=nextcord.Color.from_rgb(182, 61, 35),
                         timestamp=posted_at
                         )
-            await interaction.followup.send(embed=embed)
+            await interaction.followup.send(embed=embed, ephemeral=True)
             break
     
     @nextcord.slash_command(name='coursegrade', description='View your grade for the current course')
@@ -293,7 +297,7 @@ class stud_util(commands.Cog):
         courses = list(user.get_courses(enrollment_state='active'))
         
         if self.curr_course is None:
-            await interaction.followup.send("Please select a course before requesting your grade.", ephemeral=True)
+            await interaction.followup.send("Please select a course using /courses command before requesting your grade.", ephemeral=True)
             return
         course = self.curr_course
 
