@@ -183,7 +183,7 @@ class stud_util(commands.Cog):
         Return:
             Nothing
         """
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
 
         API_URL = 'https://templeu.instructure.com/'
         api_key = await self.get_user_canvas(member=interaction.user)
@@ -198,7 +198,7 @@ class stud_util(commands.Cog):
             await interaction.followup.send(api_key)
             return
 
-        assignments = other_cog.get_assignments(api_key)
+        assignments = await other_cog.get_assignments(api_key)
 
         if not assignments:
             await interaction.followup.send("No upcoming assignments found.")

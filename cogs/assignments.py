@@ -4,6 +4,7 @@ import json
 import canvasapi
 import pytz
 from datetime import datetime as dt
+import asyncio
 
 '''
 This cog will check for assignments due in the next x days for each user every x hours.
@@ -62,30 +63,37 @@ class autoAssignmentNotify(commands.Cog):
         return users
         
     '''
-    Get assignments from the Canvas API that are due in the next 5 days
+    Get assignments from the Canvas API that are due in the next 5 days using asyncio.
     '''
-    def get_assignments(self, api_key):
-        canvas = canvasapi.Canvas(API_URL, api_key)
+    async def get_assignments(self, api_key):
+        loop = asyncio.get_event_loop()
         assignments = []
 
-        try:
-            courses = {course.id: course for course in canvas.get_courses(enrollment_state='active')}
-            for course in courses.values():
-                try:
-                    for assignment in course.get_assignments():
-                        if assignment.due_at:
-                            due = dt.strptime(assignment.due_at, '%Y-%m-%dT%H:%M:%SZ')
-                            due = due.replace(tzinfo=pytz.utc)
-                            now = dt.now(pytz.utc) 
+        def fetch_assignments():
+            canvas = canvasapi.Canvas(API_URL, api_key)
+            localAssignments = []
 
-                            if 0 <= (due - now).days <= 5:
-                                assignment.course_name = courses[course.id].name
-                                assignments.append(assignment)
-                except Exception as e:
-                    print(f"Error fetching assignments for {course.name}: {e}")
-        except Exception as e:
-            print(f"Error fetching courses: {e}")
+            try:
+                courses = {course.id: course for course in canvas.get_courses(enrollment_state='active')}
+                for course in courses.values():
+                    try:
+                        for assignment in course.get_assignments():
+                            if assignment.due_at:
+                                due = dt.strptime(assignment.due_at, '%Y-%m-%dT%H:%M:%SZ')
+                                due = due.replace(tzinfo=pytz.utc)
+                                now = dt.now(pytz.utc) 
 
+                                if 0 <= (due - now).days <= 5:
+                                    assignment.course_name = courses[course.id].name
+                                    localAssignments.append(assignment)
+                    except Exception as e:
+                        print(f"Error fetching assignments for {course.name}: {e}")
+            except Exception as e:
+                print(f"Error fetching courses: {e}")
+
+            return localAssignments
+
+        assignments = await loop.run_in_executor(None, fetch_assignments)
         return assignments
 
 
@@ -102,7 +110,7 @@ class autoAssignmentNotify(commands.Cog):
         users = await self.get_users()  
 
         for snowflake, api_key in users.items(): 
-            assignments = self.get_assignments(api_key)
+            assignments = await self.get_assignments(api_key)
 
             if assignments:
                 user = await self.client.fetch_user(snowflake)
