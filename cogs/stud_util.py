@@ -13,13 +13,8 @@ from nextcord import Embed
 import json
 from nextcord.ext import tasks
 import asyncio
-
-
-
-
+from nextcord import Embed
 from datetime import datetime as dt
-
-
 
 class stud_util(commands.Cog):
     def __init__(self, client, curr_course = None):
@@ -202,25 +197,30 @@ class stud_util(commands.Cog):
         if api_key == 'Please login using the /login command!':
             await interaction.followup.send(api_key)
             return
-        if self.curr_course is None:
-            await interaction.followup.send('Please use `/courses` first and select a course!')
-            return
-        
+
         assignments = other_cog.get_assignments(api_key)
 
         if not assignments:
             await interaction.followup.send("No upcoming assignments found.")
             return
         
-        output = "**Upcoming Assignments (Next 5 Days):**\n"
+        embed = Embed(
+            title="Upcoming Assignments (Next 5 Days)",
+            color=nextcord.Color.blurple()
+        )
+
         sorted_assignments = sorted(assignments, key=lambda x: dt.strptime(x.due_at, '%Y-%m-%dT%H:%M:%SZ'))
 
         for a in sorted_assignments:
             due = dt.strptime(a.due_at, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=pytz.utc)
             due_str = due.strftime('%A, %B %d at %I:%M %p UTC')
-            output += f"• **{a.name}** (Course: *{a.course_name}*) — due {due_str}\n"
+            embed.add_field(
+                name=f"{a.name}",
+                value=f"{a.course_name}\nDue: {due_str}",
+                inline=False
+            )
 
-        await interaction.followup.send(output)
+        await interaction.followup.send(embed=embed)
 
 
     @nextcord.slash_command(name='announcements', description='View announcements from current class')
