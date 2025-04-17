@@ -198,12 +198,12 @@ class stud_util(commands.Cog):
         if other_cog is None:
             await interaction.followup.send("Error: assignment notifier is not loaded.")
             return
-    
+        
         if api_key == 'Please login using the /login command!':
-            await interaction.response.send_message(api_key)
+            await interaction.followup.send(api_key)
             return
         if self.curr_course is None:
-            await interaction.response.send_message('Please use `/courses` first and select a course!')
+            await interaction.followup.send('Please use `/courses` first and select a course!')
             return
         
         assignments = other_cog.get_assignments(api_key)
