@@ -26,11 +26,17 @@ class other_util(commands.Cog):
         await interaction.response.send_message(f"Welcome to the Canvas Helper bot!  Here are the commands you can use: \
             \n help - prints this message \
             \n announcements - prints the announcements for the course \
+            \n ai_announcements - sends a dm to the user with ai summary of recent announcements \
+            \n automatic_announcements - toggles periodic dms to the user with announcements for a specific course \
+            \n coursegrade - prints current course's grade \
             \n grade - prints your current grade for a course \
             \n poll - creates an embedded poll with vote reactions \
             \n announce - creates an embedded announcement on Dicsord and pins the message \
+            \n semester_gpa - prints current semester's gpa \
+            \n upcoming - Lists upcoming assignments \
             \n courses - lists current enrolled courses and allows the user to select one \
             \n login - logs the user into the database using their Canvas access token", ephemeral=True)
+
 
     # Login command.
     @nextcord.slash_command(name='login', description='Login to Canvas.')
