@@ -5,6 +5,7 @@ from nextcord.ext.commands import has_permissions, MissingPermissions
 from canvasapi import Canvas
 from nextcord import SlashOption
 import json
+import requests
 ''' Cog for other utility commands such as help or logging in. Basically
     things that are not specifically for professor or student. ''' 
 class other_util(commands.Cog):
@@ -38,6 +39,7 @@ class other_util(commands.Cog):
             \n login - logs the user into the database using their Canvas access token", ephemeral=True)
 
 
+
     # Login command.
     @nextcord.slash_command(name='login', description='Login to Canvas.')
     async def login(self, interaction : Interaction,
@@ -52,6 +54,11 @@ class other_util(commands.Cog):
         Returns:
             Nothing
         """
+
+        # check the API key is valid
+        if not self.isValidAPIKey(api_key):
+            await interaction.response.send_message("Invalid API key! Please make sure to enter a valid key", ephemeral=True)
+            return 
         
         if await self.is_logged(api_key):
             await interaction.response.send_message('Already logged in!', ephemeral=True)
@@ -98,7 +105,18 @@ class other_util(commands.Cog):
         encryptedKey = encryptedKey.hex()
         with open(filename, 'r+') as file:
             file_data = json.load(file)
-            # A new user JSON entry
+
+            # Check if the user already exists
+            for user in file_data['users']:
+                if user['snowflake'] == snowflake:
+                    user['apikey'] = encryptedKey
+                    file.seek(0)
+                    json.dump(file_data, file, indent=4)
+                    file.truncate()
+                    return user_count
+
+            # A new user JSON entry 
+
             new_user = {
                 'id': user_count,
                 'snowflake': snowflake,
@@ -112,7 +130,5 @@ class other_util(commands.Cog):
         return user_count + 1
 
         
-
-
 def setup(client):
     client.add_cog(other_util(client, 0))
