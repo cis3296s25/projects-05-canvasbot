@@ -197,8 +197,41 @@ class stud_util(commands.Cog):
             await interaction.response.send_message(api_key, ephemeral=True)
             return
         
+        await interaction.response.defer(ephemeral=True)
+        
         user = canvasapi.Canvas(API_URL, api_key)
-        courses = list(user.get_courses(enrollment_state='active'))
+        all_courses = user.get_courses(enrollment_state='active')
+        courses = []
+        current_month = dt.now().month
+        current_year = dt.now().year
+        previous_month = current_month - 1 if current_month > 1 else 12
+        previous_month_year = current_year if current_month > 1 else current_year - 1
+
+        for course in all_courses:
+            try:
+                assignments = list(course.get_assignments())
+                has_relevant_assignments = False
+
+                for assignment in assignments:
+                    if hasattr(assignment, 'due_at') and assignment.due_at:
+                        try:
+                            due_date = dt.strptime(assignment.due_at, '%Y-%m-%dT%H:%M:%SZ')
+                            if (due_date.year == current_year and due_date.month == current_month) or \
+                            (due_date.year == previous_month_year and due_date.month == previous_month):
+                                has_relevant_assignments = True
+                                break
+                        except Exception:
+                            continue
+
+                if has_relevant_assignments or "2025" in course.name:
+                    courses.append(course)
+
+            except Exception as e:
+                print(f"Error processing course {course.name}: {e}")
+        
+        if not courses:
+            await interaction.response.send_message("No current courses found based on recent activity.",ephemeral=True)
+            return
 
         options = [
             SelectOption(label=course.name, value=str(i)) for i, course in enumerate(courses)
@@ -230,7 +263,7 @@ class stud_util(commands.Cog):
 
         view = CourseSelectView(timeout=30)
         view.add_item(select)
-        await interaction.response.send_message("Select a course:", view=view, ephemeral=True)
+        await interaction.followup.send("Select a course:", view=view, ephemeral=True)
         view.message = await interaction.original_message()
 
 
