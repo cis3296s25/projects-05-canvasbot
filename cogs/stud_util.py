@@ -16,7 +16,7 @@ from nextcord.ext import tasks
 import asyncio
 from nextcord import Embed
 from datetime import datetime as dt
-from nextcord.ui import Select, View
+from nextcord.ui import Select, View, Button
 from nextcord import SelectOption
 
 class stud_util(commands.Cog):
@@ -64,44 +64,99 @@ class stud_util(commands.Cog):
         elif percentage >= 63: return 1.0  # D
         elif percentage >= 60: return 0.7  # D-
         else: return 0.0  # F
-
-    def get_course_credits(self, course_name: str) -> int:
-        """
-        Returns the number of credits for a course based on its name.
-        
-        Args:
-            course_name: The name of the course
             
-        Returns:
-            int: Number of credits (default is 3)
-        """
-        # Convert to lowercase for case-insensitive matching
-        name_lower = course_name.lower()
+    class GPACalculateView(nextcord.ui.View):
+        def __init__(self, course_data):
+            super().__init__(timeout=300)
+            self.course_data = course_data
+            self.add_item(stud_util.GPACalculateButton(self.course_data))
+
+    class GPACalculateButton(nextcord.ui.Button):
+        def __init__(self, course_data):
+            super().__init__(label="Calculate GPA", style=nextcord.ButtonStyle.primary)
+            self.course_data = course_data
+
+        async def callback(self, interaction: nextcord.Interaction):
+            if any(course.get('credits') is None for course in self.course_data):
+                await interaction.response.send_message(
+                    "Please select credit hours for all courses first.", ephemeral=True
+                )
+                return
+
+            total_points = sum(course['gpa_points'] * course['credits'] for course in self.course_data)
+            total_credits = sum(course['credits'] for course in self.course_data)
+
+            if total_credits == 0:
+                await interaction.response.send_message("Total credits is zero. Cannot compute GPA.", ephemeral=True)
+                return
+            
+            semester_gpa = round(total_points / total_credits, 2)
+
+            output = f"**Your current semester GPA is: {semester_gpa}**\n\n"
+            output += "Course breakdown:\n"
+            for course in self.course_data:
+                output += f"- {course['name'][:40]}... ({course['grade']}%) -> {course['gpa_points']} GPA × {course['credits']} credits\n"
+
+            await interaction.response.send_message(output)
+
+    class CombinedCreditHourView(nextcord.ui.View):
+        def __init__(self, course_data):
+            super().__init__(timeout=300)
+            self.course_data = course_data
+
+            # Add a dropdown for each course
+            for index in range(len(course_data)):
+                self.add_item(stud_util.CreditHourDropdown(course_data, index))
+
+    class CreditHourDropdown(nextcord.ui.Select):
+        def __init__(self, course_data, index):
+            self.course_data = course_data
+            self.index = index
+
+            options = [
+                nextcord.SelectOption(label=f"{j} Credits", value=str(j))
+                for j in range(1, 6)
+            ]
+
+            super().__init__(
+                placeholder=f"Select Credits for Course {self.index + 1}",
+                options=options,
+                min_values=1,
+                max_values=1,
+                row=self.index
+            )
+
+        # Pre-fill default if not already set
+            if self.course_data[self.index].get('credits') is None:
+                self.course_data[self.index]['credits'] = 3
+
+        async def callback(self, interaction: nextcord.Interaction):
+            self.course_data[self.index]['credits'] = int(self.values[0])
+            await interaction.response.defer()        
+
+    async def create_credit_hour_selection(self, interaction, course_data):
+        for course in course_data:
+            if course.get('credits') is None:
+                course['credits'] = 3
         
-        # List of (some) courses that are 4 credits
-        four_credit_courses = [
-            "calculus iii",
-            "calculus ii",
-            "computer systems",
-            "low-level programming",
-            "software design",
-            "mathematical concepts",
-            "data structures",
-            "operating systems",
-            "systems programming"
-            "web application"
-            "wireless networks"
-            "mobile application"
-            "database systems"
-        ]
+        description = "\n".join([f"Course {i+1}: {course['name'][:80]}" for i, course in enumerate(course_data)])
+        embed = nextcord.Embed(
+            title="Select Credit Hours",
+            description=description,
+            color=nextcord.Color.blurple()
+        )
         
-        # Check if any of the 4-credit course keywords are in the course name
-        for course_keyword in four_credit_courses:
-            if course_keyword in name_lower:
-                return 4
-                
-        # Default for other courses
-        return 3
+        await interaction.followup.send(
+            embed=embed,
+            view=stud_util.CombinedCreditHourView(course_data),
+            ephemeral=True
+        )
+
+        await interaction.followup.send(
+            "Once all credits are set, click below to calculate your GPA. If no selection is made for a course, it will default to 3 credits: ",
+            view=stud_util.GPACalculateView(course_data),
+            ephemeral=True
+        )
 
     async def get_user_canvas(self, member : nextcord.User | nextcord.Member,
                         filename = 'users.json') -> str:
@@ -422,13 +477,13 @@ class stud_util(commands.Cog):
         Args:
             interaction: The Discord interaction
         """
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
 
         API_URL = 'https://templeu.instructure.com/'
         api_key = await self.get_user_canvas(member=interaction.user)
 
         if api_key == 'Please login using the /login command!':
-            await interaction.followup.send(api_key)
+            await interaction.followup.send(api_key, ephemeral=True)
             return
         
         try:
@@ -486,12 +541,10 @@ class stud_util(commands.Cog):
                     print(f"   Error processing course {course.name}: {e}")
         
             if not current_semester_courses:
-                await interaction.followup.send("No current semester courses found.")
+                await interaction.followup.send("No current semester courses found.", ephemeral=True)
                 return
             
             # Calculate GPA
-            total_points = 0 
-            total_credits = 0
             course_data = []
 
             for course in current_semester_courses:
@@ -508,42 +561,26 @@ class stud_util(commands.Cog):
                     current_score = float(current_score)
                     gpa_points = self.convert_to_gpa_scale(current_score)
 
-                    # Get credits based on course name
-                    credits = self.get_course_credits(course.name) 
-
-                    # Add to running totals 
-                    total_points += gpa_points * credits
-                    total_credits += credits
-
-                    # Store for detailed output
+                    # Store data for UI selection (not setting credits yet)
                     course_data.append({
                         'name': course.name,
                         'grade': current_score,
                         'gpa_points': gpa_points,
-                        'credits': credits
+                        'credits': None # Will be filled by user selection
                     })
                 except Exception as e:
                     print(f"Error processing course {course.name}: {e}")
                     continue
             
-            # Calculate final GPA
-            if total_credits > 0:
-                semester_gpa = total_points / total_credits
-                semester_gpa_rounded = round(semester_gpa, 2)
-
-                # Format output
-                output = f"**Your current semester GPA is: {semester_gpa_rounded}**\n\n"
-                output += "Course breakdown:\n"
-                for c in course_data:
-                    output += f"- {c['name']}: {c['grade']}% ({c['gpa_points']} GPA points)\n"
-
-                await interaction.followup.send(output)
-            else:
-                await interaction.followup.send("Could not calculate GPA - no graded courses found for this semester")
+            if not course_data:
+                await interaction.followup.send("Could not calculate GPA - no graded courses found for this semester.", ephemeral=True)
+                return
+            
+            await self.create_credit_hour_selection(interaction, course_data)
 
         except Exception as e:
             print(f"Error calculating semester GPA: {e}")
-            await interaction.followup.send("An error occurred while calculating your semester GPA. Please try again later.")
+            await interaction.followup.send("An error occurred while calculating your semester GPA. Please try again later.", ephemeral=True)
 
 def setup(client):
     client.add_cog(stud_util(client))
