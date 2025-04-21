@@ -149,19 +149,19 @@ class autoAssignmentNotify(commands.Cog):
         overdueUsers = await self.get_users(type_filter="overdue")
 
         for snowflake, api_key in overdueUsers.items(): 
-                    overdueAssignments = self.overdueAssignments(api_key)
-                    if overdueAssignments:
-                        user = await self.client.fetch_user(snowflake)
-                        if user:
-                            await self.sendEmbed(
-                                user,
-                                "Overdue Assignments from the Past 5 Days",
-                                self.organizeCourse(overdueAssignments, api_key),
-                                0xED4245
-                            )
+            overdueAssignments = self.overdueAssignments(api_key)
+            if overdueAssignments:
+                user = await self.client.fetch_user(snowflake)
+                if user:
+                    await self.sendEmbed(
+                        user,
+                        "Overdue Assignments from the Past 5 Days",
+                        self.organizeCourse(overdueAssignments, api_key),
+                        0xED4245
+                    )
                             
         for snowflake, api_key in upcomingUsers.items(): 
-            upcomingAssignments = self.get_assignments(api_key)
+            upcomingAssignments = await self.get_assignments(api_key)
             if upcomingAssignments:
                 user = await self.client.fetch_user(snowflake)
                 if user:
