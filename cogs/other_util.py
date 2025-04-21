@@ -193,8 +193,11 @@ class other_util(commands.Cog):
             new_user = {
                 'id': user_count,
                 'snowflake': snowflake,
-                'apikey': encryptedKey
+                'apikey': encryptedKey,
+                'assignmentReminders': True,
+                'overdueAssignmentsReminder': True,
             }
+            
             file_data['users'].append(new_user)
             file.seek(0)
             json.dump(file_data, file, indent=4)

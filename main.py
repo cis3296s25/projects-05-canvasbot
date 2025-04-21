@@ -35,12 +35,21 @@ if not os.path.exists(aiFile) or os.path.getsize(aiFile) == 0:
             "guilds": {}
         }, file, indent=4)
 
+# if .env file doesn't exist, create it
+if not os.path.exists('.env'):
+    with open('.env', 'w') as file:
+        file.write('DISCORD=""\n')
 
 @client.event
 async def on_message(message):
+    # Ignore messages sent by the bot itself
     if message.author == client.user:
         return
 
+    # Ignore messages sent in a DM
+    if message.guild is None:
+        return
+    
     with open("ai.json", "r") as file:
         data = json.load(file)
         guildID = str(message.guild.id)
