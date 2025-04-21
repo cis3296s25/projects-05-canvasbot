@@ -154,6 +154,7 @@ class autoAssignmentNotify(commands.Cog):
                         0xED4245
                     )
         
+        
         for snowflake, api_key in upcomingUsers.items(): 
             upcomingAssignments = self.get_assignments(api_key)
             if upcomingAssignments:
