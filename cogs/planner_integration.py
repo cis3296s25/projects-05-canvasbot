@@ -29,15 +29,23 @@ class planner(commands.Cog):
         Return:
             Nothing
         """
-        await interaction.response.defer(ephemeral=True)
+        
 
         user_id = str(interaction.user.id)                              #User's discord ID string: use in OAuth in flow state
         auth_url = self.generate_google_auth_url(user_id)               #Gen OAuth URL with user ID embedded in the state
 
+        try: 
+            await interaction.response.defer(ephemeral=True)
+        except nextcord.errors.NotFound:
+            print("Interaction already expired. Skipping defer.")
+            return
 
-        await interaction.followup.send(
-            f"Click here to connect your Google Calendar: {auth_url}", 
-            ephemeral=True)                                             # Make the message visible only to the user
+        try:
+            await interaction.followup.send(
+                f"Click here to connect your Google Calendar: {auth_url}", 
+                ephemeral=True)       
+        except nextcord.errors.NotFound:
+            print("⚠️ Followup send failed due to expired interaction.")                                      # Make the message visible only to the user
 
             
     # Calendar test =======================================================================================================    

@@ -5,3 +5,6 @@ beautifulsoup4
 pytz
 cryptography
 openai
+google-auth-oauthlib
+google-api-python-client
+requests
