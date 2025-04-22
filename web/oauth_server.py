@@ -31,7 +31,7 @@ def oauth2callback():
      # Initialize the OAuth flow with the same settings used to generate the original auth URL
     print("REDIRECT_URI =", REDIRECT_URI)
     flow = Flow.from_client_secrets_file(
-        "credentials.json",  # Google OAuth credentials file
+        "../credentials.json",  # Google OAuth credentials file
         scopes=SCOPES,
         redirect_uri=REDIRECT_URI
     )
