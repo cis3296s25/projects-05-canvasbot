@@ -97,7 +97,7 @@ class stud_util(commands.Cog):
             for course in self.course_data:
                 output += f"- {course['name'][:40]}... ({course['grade']}%) -> {course['gpa_points']} GPA × {course['credits']} credits\n"
 
-            await interaction.response.send_message(output)
+            await interaction.response.send_message(output, ephemeral=True)
 
     class CombinedCreditHourView(nextcord.ui.View):
         def __init__(self, course_data):
