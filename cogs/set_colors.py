@@ -28,6 +28,7 @@ class ColorPickerView(View):
         self.user_id = user_id
         self.courses = courses
         self.responses = {}
+        self.selected_count = 0
 
         for course in courses[:5]:
             color_select = Select(

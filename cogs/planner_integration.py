@@ -66,7 +66,7 @@ class planner(commands.Cog):
 
 
         try:
-            with open(f"tokens/{user_id}.json", "r") as f:
+            with open(f"web/tokens/{user_id}.json", "r") as f:
                 creds = Credentials(**json.load(f))
 
             
@@ -135,7 +135,7 @@ class planner(commands.Cog):
 
             
             #Load Google Credentials
-            with open(f"tokens/{user_id}.json", "r") as f:
+            with open(f"web/tokens/{user_id}.json", "r") as f:
                 creds = Credentials(**json.load(f))
             calendar_service = build("calendar", "v3", credentials = creds)
 
