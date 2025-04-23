@@ -1,6 +1,6 @@
 import nextcord
 import os
-from dotenv import load_dotenv 
+from dotenv import load_dotenv, find_dotenv 
 from nextcord.ext import commands
 from nextcord.ext import tasks
 from nextcord import Interaction
@@ -18,6 +18,7 @@ from nextcord import Embed
 from datetime import datetime as dt
 from nextcord.ui import Select, View, Button
 from nextcord import SelectOption
+from openai import OpenAI
 
 class stud_util(commands.Cog):
     def __init__(self, client, curr_course = None):
@@ -412,6 +413,81 @@ class stud_util(commands.Cog):
             await interaction.followup.send("There was an error retrieving the grade. Please try again later.", ephemeral=True)
 
 
+    @nextcord.slash_command(name='ai_announcements', description='Generates AI summaries of announcements the from current class sent to you as a dm')
+    async def ai_announcements(self, interaction: Interaction):
+        """
+        Slash command to send week's worth of announcements that are summarized by ai as a direct message
+        Params
+            interaction: Interaction >>> The Discord interaction
+        Returns
+            Nothing
+        """
+        await interaction.response.defer() 
+
+        global URL_CANVAS
+        global key_api
+
+        URL_CANVAS = 'https://templeu.instructure.com/'
+        userCurrent = interaction.user
+        key_api = await self.get_user_canvas(member=interaction.user)
+
+
+        if key_api == 'Please login using the /login command!':
+            await interaction.response.send_message(key_api)
+            return
+
+        if self.curr_course is None:
+            await interaction.followup.send("Please select a course before requesting announcements.", ephemeral=True)
+            return
+        
+        self.url = URL_CANVAS
+        self.key = key_api
+        self.user = userCurrent
+
+        userNew = canvasapi.Canvas(self.url, self.key)
+        announcement_pl  = userNew.get_announcements(context_codes=[self.curr_course])
+        weekly_list = []
+        today = dt.utcnow()
+
+        print("This is before the web scraping.")
+        
+        for announcements in announcement_pl:
+            if announcements.posted_at is not None:
+                posted_at = dt.strptime(announcements.posted_at, '%Y-%m-%dT%H:%M:%SZ')
+                day_amount = (today - posted_at).days
+                if day_amount <= 7:
+                    raw_html = announcements.message
+                    soup = BeautifulSoup(raw_html, features="html.parser")
+                    desc = soup.get_text().strip()
+                    announcement_date = posted_at.strftime('%B %d, %Y at %I:%M %p')
+                    weekly_list.append(f"**{announcements.title}**\nPosted on: {announcement_date}\n{desc}\n")
+
+        message = "\n\n".join(weekly_list)
+
+        modelChoice = "gpt-3.5-turbo" 
+
+        print("This log is before the open ai api call")
+
+        load_dotenv(find_dotenv())
+        openAI_api = os.getenv("CHATGPT")
+
+        client = OpenAI(api_key=openAI_api)
+        completion = client.chat.completions.create(
+            model = modelChoice,
+            max_tokens = 100,
+            store=True,
+            messages=[ 
+                {"role": "user", "content": "summarize the major points in an easy to understand way: " + message}
+            ]
+        )
+
+        ai_summary = completion.choices[0].message.content
+        print("This log is before the dm is sent and includes the returned message:", ai_summary)
+
+        dm_channel = await self.user.create_dm()
+        await dm_channel.send(ai_summary)
+        await interaction.followup.send(f'A DM was sent to you with a summary of recent announcements from this course.\n')
+    
     @nextcord.slash_command(name='automatic_announcements', description='Have announcements the from current class automatically sent to you as a dm')
     async def automatic_announcements(self, interaction: Interaction):
         """
