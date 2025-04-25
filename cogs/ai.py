@@ -23,7 +23,11 @@ class ai(commands.Cog) :
                 channelId = guildData.get("channelId")
                 chatPrompts = guildData.get("chatPrompts", [])
 
-                apiKey = data.get("apiKey")
+                apiKey = data.get("guilds", {}).get(guildID, {}).get("apiKey")
+                if not apiKey:
+                    await message.channel.send("No API key found. Please set one using the /ai command.")
+                    return
+                
                 if apiKey:
                     decryptedAPIKey = await self.client.get_cog('RSA').decryptAPIKey(bytes.fromhex(apiKey))
                     self.openai = AsyncOpenAI(api_key=decryptedAPIKey)
@@ -87,24 +91,24 @@ class ai(commands.Cog) :
         except Exception as e :
             await message.channel.send(f"An error occurred: {str(e)}")
     
-    async def updateJSON(self, guildId, channelId):
+    async def updateJSON(self, guildId, channelId, encryptedKey=None):
         try:
             with open("ai.json", "r") as f:
                 data = json.load(f)
         except FileNotFoundError:
-            data = {
-                "apiKey": "",
-                "systemPrompt": "",
-                "guilds": {}
-            }
+            data = {"guilds": {}}
 
-        data["guilds"][str(guildId)] = {
-            "channelId": str(channelId),
-            "chatPrompts": []
-        }
+        if str(guildId) not in data["guilds"]:
+            data["guilds"][str(guildId)] = {}
+
+        data["guilds"][str(guildId)]["channelId"] = str(channelId)
+        data["guilds"][str(guildId)]["chatPrompts"] = []
+        if encryptedKey:
+            data["guilds"][str(guildId)]["apiKey"] = encryptedKey
 
         with open("ai.json", "w") as f:
             json.dump(data, f, indent=4)
+
 
     @nextcord.slash_command(name="ai", description="Create a new message chat with AI bot")
     async def ai(self, interaction: nextcord.Interaction,
@@ -123,7 +127,14 @@ class ai(commands.Cog) :
             # Encrypt the API key and convert to hex for storage
             encryptedKey = await self.client.get_cog('RSA').encryptAPIKey(api_key)
             encryptedKey = encryptedKey.hex()
-            data["apiKey"] = encryptedKey
+            guildID = str(interaction.guild.id)
+            if "guilds" not in data:
+                data["guilds"] = {}
+
+            if guildID not in data["guilds"]:
+                data["guilds"][guildID] = {}
+
+            data["guilds"][guildID]["apiKey"] = encryptedKey
             file.seek(0)
             json.dump(data, file, indent=4)
             file.truncate()
@@ -141,7 +152,7 @@ class ai(commands.Cog) :
 
         guild = interaction.guild
         aiChannel = await guild.create_text_channel(name=f"AI")
-        await self.updateJSON(interaction.guild.id, aiChannel.id)
+        await self.updateJSON(interaction.guild.id, aiChannel.id, encryptedKey)
 
         await interaction.edit_original_message(content="AI chat channel created successfully!")
     
