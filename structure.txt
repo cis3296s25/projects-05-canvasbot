@@ -1,5 +1,0 @@
-Folder PATH listing
-Volume serial number is A49C-B674
-C:.
-+---cogs
-    +---__pycache__

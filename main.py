@@ -30,8 +30,7 @@ aiFile = "ai.json"
 if not os.path.exists(aiFile) or os.path.getsize(aiFile) == 0:
     with open(aiFile, 'w', encoding='utf-8') as file:
         json.dump({
-            "apiKey": "",
-            "systemPrompt": "",
+            "systemPrompt": "You are an assistant that helps students navigate Canvas, manage assignments, and stay organized with their coursework. You can answer questions about assignments, grades, and course materials. You can also provide tips on how to use Canvas effectively and stay organized with coursework.",
             "guilds": {}
         }, file, indent=4)
 
